@@ -29,6 +29,63 @@ import com.tayrinn.aiadvent.ui.viewmodel.ChatViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import com.tayrinn.aiadvent.R
+import org.json.JSONObject
+import org.json.JSONArray
+
+fun cleanJsonString(raw: String): String {
+    var s = raw.trim()
+    
+    // Заменяем одинарные кавычки на двойные
+    s = s.replace("'", "\"")
+    
+    // Вырезаем всё до первой { или [ и после последней } или ]
+    val start = minOf(
+        s.indexOf('{').let { if (it >= 0) it else Int.MAX_VALUE },
+        s.indexOf('[').let { if (it >= 0) it else Int.MAX_VALUE }
+    )
+    val end = maxOf(
+        s.lastIndexOf('}').let { if (it >= 0) it else -1 },
+        s.lastIndexOf(']').let { if (it >= 0) it else -1 }
+    )
+    
+    if (start != Int.MAX_VALUE && end >= start) {
+        s = s.substring(start, end + 1)
+    }
+    
+    // Исправляем типичные ошибки
+    s = s.replace(",\n", ",")  // Убираем переносы строк после запятых
+    s = s.replace(",\r", ",")  // Убираем возврат каретки после запятых
+    s = s.replace(",\t", ",")  // Убираем табуляцию после запятых
+    s = s.replace(", ", ",")   // Убираем пробелы после запятых
+    
+    // Исправляем незакрытые кавычки
+    var quoteCount = 0
+    for (char in s) {
+        if (char == '"') quoteCount++
+    }
+    if (quoteCount % 2 != 0) {
+        s += "\""
+    }
+    
+    // Пытаемся исправить незакрытые скобки
+    var openBraces = 0
+    var openBrackets = 0
+    
+    for (char in s) {
+        when (char) {
+            '{' -> openBraces++
+            '}' -> openBraces--
+            '[' -> openBrackets++
+            ']' -> openBrackets--
+        }
+    }
+    
+    // Добавляем недостающие закрывающие скобки
+    repeat(openBraces) { s += "}" }
+    repeat(openBrackets) { s += "]" }
+    
+    return s.trim()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +139,7 @@ fun ChatScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 8.dp),
                 state = listState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -170,6 +227,8 @@ fun ChatMessageItem(message: ChatMessage) {
         MaterialTheme.colorScheme.onSecondaryContainer
     }
 
+    var showAsJson by remember { mutableStateOf(true) }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = alignment
@@ -186,14 +245,57 @@ fun ChatMessageItem(message: ChatMessage) {
                 )
                 .background(backgroundColor)
                 .padding(12.dp)
-                .widthIn(max = 280.dp)
+                .widthIn(max = if (message.isUser) 280.dp else Int.MAX_VALUE.dp)
         ) {
-            Text(
-                text = message.content,
-                color = textColor,
-                fontSize = 16.sp,
-                lineHeight = 20.sp
-            )
+            if (!message.isUser && !message.isError) {
+                Column {
+                    // Переключатель режимов
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (showAsJson) "JSON Table" else "Text View",
+                            fontSize = 12.sp,
+                            color = textColor.copy(alpha = 0.7f)
+                        )
+                        TextButton(
+                            onClick = { showAsJson = !showAsJson },
+                            modifier = Modifier.height(24.dp)
+                        ) {
+                            Text(
+                                text = if (showAsJson) "Show Text" else "Show JSON",
+                                fontSize = 10.sp,
+                                color = textColor.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Контент
+                    if (showAsJson) {
+                        JsonTable(message.content)
+                    } else {
+                        Text(
+                            text = message.content,
+                            color = textColor,
+                            fontSize = 14.sp,
+                            lineHeight = 18.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = message.content,
+                    color = textColor,
+                    fontSize = 16.sp,
+                    lineHeight = 20.sp
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(4.dp))
@@ -333,4 +435,185 @@ fun ApiKeyDialog(
             }
         }
     )
+}
+
+@Composable
+fun JsonTable(json: String) {
+    var error by remember { mutableStateOf<String?>(null) }
+    var jsonObject: JSONObject? = null
+    var jsonArray: JSONArray? = null
+    var isValidJson by remember { mutableStateOf(false) }
+    
+    val cleaned = cleanJsonString(json)
+    
+    try {
+        if (cleaned.trim().startsWith("{")) {
+            jsonObject = JSONObject(cleaned)
+            isValidJson = true
+        } else if (cleaned.trim().startsWith("[")) {
+            jsonArray = JSONArray(cleaned)
+            isValidJson = true
+        } else {
+            error = "Could not recognize JSON format"
+        }
+    } catch (e: Exception) {
+        error = "JSON parsing error: ${e.localizedMessage}"
+    }
+
+    if (error != null) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Заголовок ошибки
+            Text(
+                "❌ Invalid JSON - showing details:",
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Детали ошибки
+            Text(
+                "Error: $error",
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 11.sp
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Оригинальный ответ
+            Text(
+                "Original response:",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = json,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        RoundedCornerShape(4.dp)
+                    )
+                    .padding(8.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Очищенный текст
+            Text(
+                "Cleaned text:",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = cleaned,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        RoundedCornerShape(4.dp)
+                    )
+                    .padding(8.dp)
+            )
+        }
+        return
+    }
+
+    if (isValidJson) {
+        if (jsonObject != null) {
+            // Логируем количество ключей в объекте
+            val keyCount = jsonObject.length()
+            Text(
+                "JSON Object with $keyCount keys:",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            JsonObjectTable(jsonObject)
+        } else if (jsonArray != null) {
+            // Логируем количество элементов в массиве
+            val arrayLength = jsonArray.length()
+            Text(
+                "JSON Array with $arrayLength elements:",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            JsonArrayTable(jsonArray)
+        }
+    }
+}
+
+@Composable
+fun JsonObjectTable(obj: JSONObject) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(8.dp)
+    ) {
+        for (key in obj.keys()) {
+            val value = obj.get(key)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(key, fontWeight = FontWeight.Bold)
+                if (value is JSONObject) {
+                    JsonObjectTable(value)
+                } else if (value is JSONArray) {
+                    JsonArrayTable(value)
+                } else {
+                    Text(value.toString())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun JsonArrayTable(array: JSONArray) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(8.dp)
+            .heightIn(max = 400.dp) // Ограничиваем высоту для прокрутки
+    ) {
+        items(array.length()) { i ->
+            val value = array.get(i)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("[$i]", fontWeight = FontWeight.Bold)
+                if (value is JSONObject) {
+                    JsonObjectTable(value)
+                } else if (value is JSONArray) {
+                    JsonArrayTable(value)
+                } else {
+                    Text(value.toString())
+                }
+            }
+        }
+    }
 }

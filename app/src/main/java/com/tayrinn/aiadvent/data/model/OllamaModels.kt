@@ -3,7 +3,7 @@ package com.tayrinn.aiadvent.data.model
 import com.google.gson.annotations.SerializedName
 
 data class OllamaRequest(
-    val model: String = "llama2",
+    val model: String = "phi3",
     val prompt: String,
     val stream: Boolean = false,
     val options: OllamaOptions = OllamaOptions()
@@ -13,7 +13,7 @@ data class OllamaOptions(
     val temperature: Double = 0.7,
     val top_p: Double = 0.9,
     val top_k: Int = 40,
-    val num_predict: Int = 100
+    val num_predict: Int = 512
 )
 
 data class OllamaResponse(
@@ -32,7 +32,7 @@ data class OllamaResponse(
 
 // Для чат-моделей
 data class OllamaChatRequest(
-    val model: String = "llama2",
+    val model: String = "phi3",
     val messages: List<OllamaMessage>,
     val stream: Boolean = false,
     val options: OllamaOptions = OllamaOptions()
