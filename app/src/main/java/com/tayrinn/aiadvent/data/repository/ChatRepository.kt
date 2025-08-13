@@ -2,92 +2,112 @@ package com.tayrinn.aiadvent.data.repository
 
 import com.tayrinn.aiadvent.data.api.OllamaApi
 import com.tayrinn.aiadvent.data.database.ChatMessageDao
-import com.tayrinn.aiadvent.data.model.ChatMessage
-import com.tayrinn.aiadvent.data.model.OllamaRequest
-import com.tayrinn.aiadvent.data.model.OllamaOptions
-import com.tayrinn.aiadvent.data.model.OllamaChatRequest
-import com.tayrinn.aiadvent.data.model.OllamaMessage
+import com.tayrinn.aiadvent.data.model.*
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ChatRepository @Inject constructor(
-    private val chatMessageDao: ChatMessageDao,
-    private val ollamaApi: OllamaApi
+    private val ollamaApi: OllamaApi,
+    private val chatMessageDao: ChatMessageDao
 ) {
-    fun getAllMessages(): Flow<List<ChatMessage>> = chatMessageDao.getAllMessages()
+    // Системные сообщения для двух агентов
+    private val agent1SystemMessage = """You are Agent 1 - a helpful AI assistant. Your task:
+    
+1. PRIMARY RESPONSE: Provide clear, detailed, and comprehensive answers to user questions
+2. EXPERTISE: Use your knowledge to give valuable insights and solutions
+3. CLARITY: Make your responses easy to understand and well-structured
+4. COMPLETENESS: Cover the topic thoroughly but concisely
 
+Rules:
+- Give direct, helpful answers
+- Be informative and engaging
+- Use natural, conversational language
+- Respond in English only"""
+
+    private val agent2SystemMessage = """You are Agent 2 - a refinement specialist. Your task:
+    
+1. ENHANCE: Take Agent 1's response and improve it
+2. CLARIFY: Add missing details or clarify unclear points
+3. EXPAND: Provide additional context, examples, or related information
+4. CORRECT: Fix any inaccuracies or suggest better approaches
+
+Rules:
+- Always reference what Agent 1 said
+- Add value, don't just repeat
+- Be constructive and helpful
+- Keep responses concise but insightful
+- Respond in English only"""
+
+    suspend fun getAllMessages(): Flow<List<ChatMessage>> = chatMessageDao.getAllMessages()
     suspend fun insertMessage(message: ChatMessage) = chatMessageDao.insertMessage(message)
-
-    suspend fun deleteMessage(message: ChatMessage) = chatMessageDao.deleteMessage(message)
-
     suspend fun deleteAllMessages() = chatMessageDao.deleteAllMessages()
 
-    suspend fun sendMessageToOllama(
-        content: String,
-        conversationHistory: List<ChatMessage>
-    ): Result<String> {
-        var attempts = 0
-        val maxAttempts = 3
-        
-        while (attempts < maxAttempts) {
-            attempts++
+    suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>): Pair<String, String> {
+        return withContext(Dispatchers.IO) {
             try {
-                // Системное сообщение для JSON-ответа
-                val systemMessage = OllamaMessage(
-                    role = "system",
-                    content = "Generate ONLY valid JSON. No markdown, no comments, no explanations. Start with { and end with }. Pure JSON only."
-                )
-
-                // Добавляем пример JSON в user prompt, если его нет
-                val userPrompt = if (content.contains("{")) {
-                    content
-                } else {
-                    "$content\nExample response: {\"key\": \"value\"}"
+                // Агент 1: Отвечает на вопрос пользователя
+                val agent1Prompt = buildString {
+                    appendLine(agent1SystemMessage)
+                    appendLine()
+                    appendLine("User question: $content")
+                    appendLine()
+                    appendLine("Previous conversation context:")
+                    conversationHistory.takeLast(10).forEach { message ->
+                        appendLine("${if (message.isUser) "User" else "AI"}: ${message.content}")
+                    }
                 }
 
-                // Только system + user message (без истории)
-                val messages = mutableListOf<OllamaMessage>()
-                messages.add(systemMessage)
-                messages.add(OllamaMessage(role = "user", content = userPrompt))
-
-                val chatRequest = OllamaChatRequest(
+                val agent1Request = OllamaRequest(
                     model = "phi3",
-                    messages = messages,
+                    prompt = agent1Prompt,
                     options = OllamaOptions(
-                        temperature = 0.7,
-                        top_p = 0.9,
-                        num_predict = 512
+                        temperature = 0.3,
+                        top_p = 0.7,
+                        num_predict = 256,
+                        top_k = 20
                     )
                 )
 
-                val response = try {
-                    val chatResponse = ollamaApi.generateChat(chatRequest)
-                    chatResponse.message.content
+                val agent1Response = try {
+                    ollamaApi.agent1Generate(agent1Request).response
                 } catch (e: Exception) {
-                    // Если чат-модель недоступна, используем генерацию текста
-                    val request = OllamaRequest(
-                        model = "phi3",
-                        prompt = userPrompt,
-                        options = OllamaOptions(
-                            temperature = 0.7,
-                            top_p = 0.9,
-                            num_predict = 512
-                        )
-                    )
-                    val textResponse = ollamaApi.generateText(request)
-                    textResponse.response
+                    "Error: ${e.message}"
                 }
 
-                return Result.success(response)
-            } catch (e: Exception) {
-                if (attempts >= maxAttempts) {
-                    return Result.failure(e)
+                // Агент 2: Дополняет и улучшает ответ Агента 1
+                val agent2Prompt = buildString {
+                    appendLine(agent2SystemMessage)
+                    appendLine()
+                    appendLine("User question: $content")
+                    appendLine()
+                    appendLine("Agent 1's response: $agent1Response")
+                    appendLine()
+                    appendLine("Your task: Enhance, clarify, and improve Agent 1's response.")
                 }
-                // Ждем перед повторной попыткой
-                kotlinx.coroutines.delay(1000L * attempts) // 1s, 2s, 3s
+
+                val agent2Request = OllamaRequest(
+                    model = "llama2",
+                    prompt = agent2Prompt,
+                    options = OllamaOptions(
+                        temperature = 0.4,
+                        top_p = 0.8,
+                        num_predict = 200,
+                        top_k = 25
+                    )
+                )
+
+                val agent2Response = try {
+                    ollamaApi.agent2Generate(agent2Request).response
+                } catch (e: Exception) {
+                    "Error: ${e.message}"
+                }
+
+                Pair(agent1Response, agent2Response)
+            } catch (e: Exception) {
+                Pair("Error: ${e.message}", "Error: ${e.message}")
             }
         }
-        
-        return Result.failure(Exception("Failed after $maxAttempts attempts"))
     }
 }

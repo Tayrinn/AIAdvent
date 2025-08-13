@@ -1,21 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AI Advent</string>
-    <string name="chat_title">AI Advent Chat</string>
-    <string name="settings">Настройки</string>
-    <string name="clear_chat">Очистить чат</string>
-    <string name="message_hint">Введите сообщение...</string>
-    <string name="send">Отправить</string>
-    <string name="user_label">Вы</string>
-    <string name="ai_label">AI</string>
-    <string name="typing_indicator">AI печатает...</string>
-    <string name="api_key_dialog_title">Настройки Ollama</string>
-    <string name="api_key_dialog_description">Настройте IP адрес и порт Ollama сервера:</string>
+    
+    <!-- Chat Screen -->
+    <string name="chat_hint">Type your message here...</string>
+    <string name="send">Send</string>
+    <string name="loading">Loading...</string>
+    <string name="error_occurred">An error occurred</string>
+    <string name="retry">Retry</string>
+    
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="api_key_dialog_title">Ollama Settings</string>
+    <string name="api_key_dialog_description">Configure Ollama server IP address and port:</string>
     <string name="api_key_placeholder">192.168.1.6:11434</string>
-    <string name="api_key_help">IP вашего компьютера: 192.168.1.6:11434\nУбедитесь, что Ollama запущена с OLLAMA_HOST=0.0.0.0:11434</string>
-    <string name="save">Сохранить</string>
-    <string name="cancel">Отмена</string>
-    <string name="clear_chat_dialog_title">Очистить чат?</string>
-    <string name="clear_chat_dialog_description">Все сообщения будут удалены безвозвратно.</string>
-    <string name="clear">Очистить</string>
+    <string name="api_key_help">Your computer IP: 192.168.1.6:11434\nMake sure Ollama is running with OLLAMA_HOST=0.0.0.0:11434</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    
+    <!-- Menu -->
+    <string name="menu_settings">Settings</string>
+    <string name="menu_clear_chat">Clear Chat</string>
+    
+    <!-- Messages -->
+    <string name="chat_cleared">Chat history cleared</string>
+    <string name="settings_saved">Settings saved successfully</string>
+    
+    <!-- User Labels -->
+    <string name="user_label">You</string>
+    <string name="ai_label">AI</string>
 </resources>

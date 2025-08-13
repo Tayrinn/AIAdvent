@@ -57,28 +57,34 @@ class ChatViewModel @Inject constructor(
             _isLoading.value = true
             
             try {
-                val response = repository.sendMessageToOllama(
+                val (agent1Response, agent2Response) = repository.sendMessage(
                     content,
                     _messages.value
                 )
                 
-                response.fold(
-                    onSuccess = { responseContent ->
-                        val assistantMessage = ChatMessage(
-                            content = responseContent,
-                            isUser = false
-                        )
-                        repository.insertMessage(assistantMessage)
-                    },
-                    onFailure = { exception ->
-                        val errorMessage = ChatMessage(
-                            content = "Ошибка: ${exception.message}",
-                            isUser = false,
-                            isError = true
-                        )
-                        repository.insertMessage(errorMessage)
-                    }
+                // Сохраняем ответ Агента 1
+                val agent1Message = ChatMessage(
+                    content = "🤖 **Agent 1:** $agent1Response",
+                    isUser = false,
+                    isAgent1 = true
                 )
+                repository.insertMessage(agent1Message)
+                
+                // Сохраняем ответ Агента 2
+                val agent2Message = ChatMessage(
+                    content = "🔍 **Agent 2 (Enhancement):** $agent2Response",
+                    isUser = false,
+                    isAgent2 = true
+                )
+                repository.insertMessage(agent2Message)
+                
+            } catch (e: Exception) {
+                val errorMessage = ChatMessage(
+                    content = "Error: ${e.message}",
+                    isUser = false,
+                    isError = true
+                )
+                repository.insertMessage(errorMessage)
             } finally {
                 _isLoading.value = false
             }

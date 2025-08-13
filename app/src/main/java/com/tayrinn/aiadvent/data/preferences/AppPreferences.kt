@@ -18,7 +18,7 @@ class AppPreferences @Inject constructor(
         private const val PREF_NAME = "ai_advent_prefs"
         private const val KEY_OLLAMA_IP = "ollama_ip"
         private const val KEY_OLLAMA_PORT = "ollama_port"
-        private const val DEFAULT_IP = "192.168.1.6" // IP вашего компьютера
+        private const val DEFAULT_IP = "192.168.1.6" // Your computer IP for phone
         private const val DEFAULT_PORT = "11434"
     }
     

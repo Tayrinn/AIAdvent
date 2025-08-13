@@ -8,21 +8,18 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 interface OllamaApi {
-    // Основной метод для генерации текста
-    @POST("api/generate")
-    suspend fun generateText(
-        @Body request: OllamaRequest
-    ): OllamaResponse
-    
-    // Метод для чат-моделей
     @POST("api/chat")
     suspend fun generateChat(
         @Body request: OllamaChatRequest
     ): OllamaChatResponse
-    
-    // Альтернативная модель (если llama2 недоступна)
+
     @POST("api/generate")
-    suspend fun generateWithMistral(
-        @Body request: OllamaRequest
-    ): OllamaResponse
+    suspend fun generateText(@Body request: OllamaRequest): OllamaResponse
+
+    // API для двух агентов - используем существующие типы
+    @POST("api/generate")
+    suspend fun agent1Generate(@Body request: OllamaRequest): OllamaResponse
+
+    @POST("api/generate")
+    suspend fun agent2Generate(@Body request: OllamaRequest): OllamaResponse
 }

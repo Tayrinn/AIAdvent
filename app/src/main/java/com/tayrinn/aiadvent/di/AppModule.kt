@@ -43,9 +43,9 @@ object AppModule {
         
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(120, TimeUnit.SECONDS)  // 2 минуты
+            .readTimeout(120, TimeUnit.SECONDS)     // 2 минуты
+            .writeTimeout(120, TimeUnit.SECONDS)    // 2 минуты
             .build()
     }
 
@@ -65,9 +65,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideChatRepository(
-        chatMessageDao: ChatMessageDao,
-        ollamaApi: OllamaApi
+        ollamaApi: OllamaApi,
+        chatMessageDao: ChatMessageDao
     ): ChatRepository {
-        return ChatRepository(chatMessageDao, ollamaApi)
+        return ChatRepository(ollamaApi, chatMessageDao)
     }
 }

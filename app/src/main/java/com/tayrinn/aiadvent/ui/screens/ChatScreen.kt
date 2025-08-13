@@ -113,13 +113,13 @@ fun ChatScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.chat_title), fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { showApiKeyDialog = true }) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
                     }
                     IconButton(onClick = { showClearChatDialog = true }) {
-                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.clear_chat))
+                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.menu_clear_chat))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -139,12 +139,12 @@ fun ChatScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-                state = listState,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 16.dp),
+                reverseLayout = true
             ) {
-                items(messages) { message ->
-                    ChatMessageItem(message = message)
+                items(messages.reversed()) { message ->
+                    MessageItem(message = message)
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
                 
                 if (isLoading) {
@@ -188,16 +188,14 @@ fun ChatScreen(
     if (showClearChatDialog) {
         AlertDialog(
             onDismissRequest = { showClearChatDialog = false },
-            title = { Text(stringResource(R.string.clear_chat_dialog_title)) },
-            text = { Text(stringResource(R.string.clear_chat_dialog_description)) },
+            title = { Text(stringResource(R.string.menu_clear_chat)) },
+            text = { Text("") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.clearChat()
-                        showClearChatDialog = false
-                    }
-                ) {
-                    Text(stringResource(R.string.clear))
+                TextButton(onClick = { 
+                    viewModel.clearChat()
+                    showClearChatDialog = false
+                }) {
+                    Text(stringResource(R.string.menu_clear_chat))
                 }
             },
             dismissButton = {
@@ -210,102 +208,89 @@ fun ChatScreen(
 }
 
 @Composable
-fun ChatMessageItem(message: ChatMessage) {
-    val alignment = if (message.isUser) Alignment.End else Alignment.Start
-    val backgroundColor = if (message.isUser) {
-        MaterialTheme.colorScheme.primary
-    } else if (message.isError) {
-        MaterialTheme.colorScheme.errorContainer
-    } else {
-        MaterialTheme.colorScheme.secondaryContainer
+fun MessageItem(message: ChatMessage) {
+    val backgroundColor = when {
+        message.isUser -> MaterialTheme.colorScheme.primaryContainer
+        message.isAgent1 -> MaterialTheme.colorScheme.secondaryContainer
+        message.isAgent2 -> MaterialTheme.colorScheme.tertiaryContainer
+        message.isError -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
     }
-    val textColor = if (message.isUser) {
-        MaterialTheme.colorScheme.onPrimary
-    } else if (message.isError) {
-        MaterialTheme.colorScheme.onErrorContainer
-    } else {
-        MaterialTheme.colorScheme.onSecondaryContainer
+    
+    val textColor = when {
+        message.isUser -> MaterialTheme.colorScheme.onPrimaryContainer
+        message.isAgent1 -> MaterialTheme.colorScheme.onSecondaryContainer
+        message.isAgent2 -> MaterialTheme.colorScheme.onTertiaryContainer
+        message.isError -> MaterialTheme.colorScheme.onErrorContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-
-    var showAsJson by remember { mutableStateOf(true) }
+    
+    val icon = when {
+        message.isUser -> Icons.Default.Person
+        message.isAgent1 -> Icons.Default.Star
+        message.isAgent2 -> Icons.Default.Search
+        message.isError -> Icons.Default.Warning
+        else -> Icons.Default.Info
+    }
+    
+    val label = when {
+        message.isUser -> stringResource(R.string.user_label)
+        message.isAgent1 -> "Agent 1"
+        message.isAgent2 -> "Agent 2"
+        message.isError -> "Error"
+        else -> stringResource(R.string.ai_label)
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = alignment
+        horizontalAlignment = if (message.isUser) Alignment.End else Alignment.Start
     ) {
-        Box(
-            modifier = Modifier
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (message.isUser) 16.dp else 4.dp,
-                        bottomEnd = if (message.isUser) 4.dp else 16.dp
-                    )
-                )
-                .background(backgroundColor)
-                .padding(12.dp)
-                .widthIn(max = if (message.isUser) 280.dp else Int.MAX_VALUE.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 4.dp)
         ) {
-            if (!message.isUser && !message.isError) {
-                Column {
-                    // Переключатель режимов
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (showAsJson) "JSON Table" else "Text View",
-                            fontSize = 12.sp,
-                            color = textColor.copy(alpha = 0.7f)
-                        )
-                        TextButton(
-                            onClick = { showAsJson = !showAsJson },
-                            modifier = Modifier.height(24.dp)
-                        ) {
-                            Text(
-                                text = if (showAsJson) "Show Text" else "Show JSON",
-                                fontSize = 10.sp,
-                                color = textColor.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Контент
-                    if (showAsJson) {
-                        JsonTable(message.content)
-                    } else {
-                        Text(
-                            text = message.content,
-                            color = textColor,
-                            fontSize = 14.sp,
-                            lineHeight = 18.sp,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            } else {
-                Text(
-                    text = message.content,
-                    color = textColor,
-                    fontSize = 16.sp,
-                    lineHeight = 20.sp
+            if (!message.isUser) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                color = textColor,
+            )
+            
+            if (message.isUser) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
         
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        Text(
-            text = if (message.isUser) "Вы" else "AI",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
+        Card(
+            modifier = Modifier
+                .widthIn(max = 280.dp)
+                .padding(vertical = 2.dp),
+            colors = CardDefaults.cardColors(containerColor = backgroundColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Text(
+                text = message.content,
+                modifier = Modifier.padding(12.dp),
+                color = textColor,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+        }
     }
 }
 
@@ -332,7 +317,7 @@ fun LoadingIndicator() {
                     strokeWidth = 2.dp
                 )
                 Text(
-                    text = stringResource(R.string.typing_indicator),
+                    text = stringResource(R.string.loading),
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
@@ -362,7 +347,7 @@ fun MessageInput(
             modifier = Modifier
                 .weight(1f)
                 .focusRequester(focusRequester),
-            placeholder = { Text(stringResource(R.string.message_hint)) },
+            placeholder = { Text(stringResource(R.string.chat_hint)) },
             maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(
@@ -439,13 +424,13 @@ fun ApiKeyDialog(
 
 @Composable
 fun JsonTable(json: String) {
-    var error by remember { mutableStateOf<String?>(null) }
+    var error: String? by remember { mutableStateOf(null) }
     var jsonObject: JSONObject? = null
     var jsonArray: JSONArray? = null
     var isValidJson by remember { mutableStateOf(false) }
-    
+
     val cleaned = cleanJsonString(json)
-    
+
     try {
         if (cleaned.trim().startsWith("{")) {
             jsonObject = JSONObject(cleaned)
@@ -464,102 +449,51 @@ fun JsonTable(json: String) {
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Заголовок ошибки
             Text(
-                "❌ Invalid JSON - showing details:",
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
+                "📝 AI Response:",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
             )
-            
             Spacer(modifier = Modifier.height(8.dp))
-            
-            // Детали ошибки
-            Text(
-                "Error: $error",
-                color = MaterialTheme.colorScheme.error,
-                fontSize = 11.sp
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Оригинальный ответ
-            Text(
-                "Original response:",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
             Text(
                 text = json,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 12.sp,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        RoundedCornerShape(4.dp)
+                        RoundedCornerShape(8.dp)
                     )
-                    .padding(8.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Очищенный текст
-            Text(
-                "Cleaned text:",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            Text(
-                text = cleaned,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 12.sp,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        RoundedCornerShape(4.dp)
-                    )
-                    .padding(8.dp)
+                    .padding(12.dp)
             )
         }
         return
     }
 
-    if (isValidJson) {
-        if (jsonObject != null) {
-            // Логируем количество ключей в объекте
-            val keyCount = jsonObject.length()
-            Text(
-                "JSON Object with $keyCount keys:",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            JsonObjectTable(jsonObject)
-        } else if (jsonArray != null) {
-            // Логируем количество элементов в массиве
-            val arrayLength = jsonArray.length()
-            Text(
-                "JSON Array with $arrayLength elements:",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            JsonArrayTable(jsonArray)
-        }
+    if (jsonObject != null) {
+        val keyCount = jsonObject.length()
+        Text(
+            "📊 Structured Data ($keyCount fields):",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        JsonObjectTable(jsonObject)
+    } else if (jsonArray != null) {
+        val arrayLength = jsonArray.length()
+        Text(
+            "📋 List ($arrayLength items):",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        JsonArrayTable(jsonArray)
     }
 }
 
@@ -568,22 +502,40 @@ fun JsonObjectTable(obj: JSONObject) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(8.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(12.dp)
     ) {
+        var isFirst = true
         for (key in obj.keys()) {
+            if (!isFirst) {
+                Divider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                )
+            }
+            isFirst = false
+            
             val value = obj.get(key)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(key, fontWeight = FontWeight.Bold)
+                Text(
+                    text = key.replace("_", " ").replaceFirstChar { it.uppercase() },
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(0.4f)
+                )
                 if (value is JSONObject) {
                     JsonObjectTable(value)
                 } else if (value is JSONArray) {
                     JsonArrayTable(value)
                 } else {
-                    Text(value.toString())
+                    Text(
+                        text = value.toString(),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(0.6f)
+                    )
                 }
             }
         }
@@ -595,24 +547,39 @@ fun JsonArrayTable(array: JSONArray) {
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(8.dp)
-            .heightIn(max = 400.dp) // Ограничиваем высоту для прокрутки
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(12.dp)
+            .heightIn(max = 400.dp)
     ) {
         items(array.length()) { i ->
             val value = array.get(i)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("[$i]", fontWeight = FontWeight.Bold)
+                Text(
+                    text = "•",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
                 if (value is JSONObject) {
                     JsonObjectTable(value)
                 } else if (value is JSONArray) {
                     JsonArrayTable(value)
                 } else {
-                    Text(value.toString())
+                    Text(
+                        text = value.toString(),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
+            }
+            if (i < array.length() - 1) {
+                Divider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                )
             }
         }
     }

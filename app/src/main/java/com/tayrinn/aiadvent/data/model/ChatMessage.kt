@@ -10,5 +10,7 @@ data class ChatMessage(
     val content: String,
     val isUser: Boolean,
     val timestamp: Long = System.currentTimeMillis(),
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    val isAgent1: Boolean = false,
+    val isAgent2: Boolean = false
 )

@@ -10,10 +10,11 @@ data class OllamaRequest(
 )
 
 data class OllamaOptions(
-    val temperature: Double = 0.7,
-    val top_p: Double = 0.9,
-    val top_k: Int = 40,
-    val num_predict: Int = 512
+    val temperature: Double = 0.3,        // Уменьшаем для ускорения
+    val top_p: Double = 0.7,             // Уменьшаем для стабильности
+    val top_k: Int = 20,                 // Добавляем для ускорения
+    val num_predict: Int = 256,          // Уменьшаем для ускорения
+    val num_ctx: Int = 2048              // Уменьшаем контекст для ускорения
 )
 
 data class OllamaResponse(
@@ -54,4 +55,25 @@ data class OllamaChatResponse(
     val prompt_eval_duration: Long? = null,
     val eval_count: Int? = null,
     val eval_duration: Long? = null
+)
+
+// Модели для двух агентов
+data class Agent1Request(
+    val model: String = "phi3",
+    val prompt: String,
+    val options: OllamaOptions = OllamaOptions()
+)
+
+data class Agent2Request(
+    val model: String = "llama2",  // Вторая модель для разнообразия
+    val prompt: String,
+    val options: OllamaOptions = OllamaOptions()
+)
+
+data class Agent1Response(
+    val response: String
+)
+
+data class Agent2Response(
+    val response: String
 )
