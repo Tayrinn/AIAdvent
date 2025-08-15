@@ -2,6 +2,7 @@ package com.tayrinn.aiadvent.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -11,59 +12,51 @@ class AppPreferences @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences(
-        PREF_NAME, Context.MODE_PRIVATE
+        "aiadvent_prefs",
+        Context.MODE_PRIVATE
     )
-    
+
     companion object {
-        private const val PREF_NAME = "ai_advent_prefs"
         private const val KEY_OLLAMA_IP = "ollama_ip"
         private const val KEY_OLLAMA_PORT = "ollama_port"
-        private const val DEFAULT_IP = "192.168.1.6" // Your computer IP for phone
-        private const val DEFAULT_PORT = "11434"
+        private const val KEY_HOST_IP = "host_ip"
+        private const val DEFAULT_OLLAMA_IP = "192.168.1.6"
+        private const val DEFAULT_OLLAMA_PORT = "11434"
+        private const val DEFAULT_HOST_IP = "192.168.1.6"
     }
-    
-    /**
-     * Получает IP адрес Ollama сервера
-     */
+
     fun getOllamaIp(): String {
-        return prefs.getString(KEY_OLLAMA_IP, DEFAULT_IP) ?: DEFAULT_IP
+        return prefs.getString(KEY_OLLAMA_IP, DEFAULT_OLLAMA_IP) ?: DEFAULT_OLLAMA_IP
     }
-    
-    /**
-     * Устанавливает IP адрес Ollama сервера
-     */
+
     fun setOllamaIp(ip: String) {
         prefs.edit().putString(KEY_OLLAMA_IP, ip).apply()
     }
-    
-    /**
-     * Получает порт Ollama сервера
-     */
+
     fun getOllamaPort(): String {
-        return prefs.getString(KEY_OLLAMA_PORT, DEFAULT_PORT) ?: DEFAULT_PORT
+        return prefs.getString(KEY_OLLAMA_PORT, DEFAULT_OLLAMA_PORT) ?: DEFAULT_OLLAMA_PORT
     }
-    
-    /**
-     * Устанавливает порт Ollama сервера
-     */
+
     fun setOllamaPort(port: String) {
         prefs.edit().putString(KEY_OLLAMA_PORT, port).apply()
     }
-    
-    /**
-     * Получает полный URL для Ollama API
-     */
-    fun getOllamaBaseUrl(): String {
-        return "http://${getOllamaIp()}:${getOllamaPort()}/"
+
+    fun getHostIp(): String {
+        return prefs.getString(KEY_HOST_IP, DEFAULT_HOST_IP) ?: DEFAULT_HOST_IP
     }
-    
-    /**
-     * Сбрасывает настройки на значения по умолчанию
-     */
-    fun resetToDefaults() {
-        prefs.edit()
-            .putString(KEY_OLLAMA_IP, DEFAULT_IP)
-            .putString(KEY_OLLAMA_PORT, DEFAULT_PORT)
-            .apply()
+
+    fun setHostIp(ip: String) {
+        prefs.edit().putString(KEY_HOST_IP, ip).apply()
+    }
+
+    fun isEmulator(): Boolean {
+        return (Build.FINGERPRINT.startsWith("generic")
+                || Build.FINGERPRINT.startsWith("unknown")
+                || Build.MODEL.contains("google_sdk")
+                || Build.MODEL.contains("Emulator")
+                || Build.MODEL.contains("Android SDK built for x86")
+                || Build.MANUFACTURER.contains("Genymotion")
+                || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
+                || "google_sdk" == Build.PRODUCT)
     }
 }

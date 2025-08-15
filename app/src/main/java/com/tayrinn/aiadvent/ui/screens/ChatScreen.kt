@@ -1,13 +1,13 @@
 package com.tayrinn.aiadvent.ui.screens
 
+import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -15,194 +15,235 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.tayrinn.aiadvent.R
 import com.tayrinn.aiadvent.data.model.ChatMessage
 import com.tayrinn.aiadvent.ui.viewmodel.ChatViewModel
-import kotlinx.coroutines.launch
-import androidx.compose.ui.res.stringResource
-import com.tayrinn.aiadvent.R
-import org.json.JSONObject
-import org.json.JSONArray
+import java.io.File
 
-fun cleanJsonString(raw: String): String {
-    var s = raw.trim()
-    
-    // Заменяем одинарные кавычки на двойные
-    s = s.replace("'", "\"")
-    
-    // Вырезаем всё до первой { или [ и после последней } или ]
-    val start = minOf(
-        s.indexOf('{').let { if (it >= 0) it else Int.MAX_VALUE },
-        s.indexOf('[').let { if (it >= 0) it else Int.MAX_VALUE }
-    )
-    val end = maxOf(
-        s.lastIndexOf('}').let { if (it >= 0) it else -1 },
-        s.lastIndexOf(']').let { if (it >= 0) it else -1 }
-    )
-    
-    if (start != Int.MAX_VALUE && end >= start) {
-        s = s.substring(start, end + 1)
-    }
-    
-    // Исправляем типичные ошибки
-    s = s.replace(",\n", ",")  // Убираем переносы строк после запятых
-    s = s.replace(",\r", ",")  // Убираем возврат каретки после запятых
-    s = s.replace(",\t", ",")  // Убираем табуляцию после запятых
-    s = s.replace(", ", ",")   // Убираем пробелы после запятых
-    
-    // Исправляем незакрытые кавычки
-    var quoteCount = 0
-    for (char in s) {
-        if (char == '"') quoteCount++
-    }
-    if (quoteCount % 2 != 0) {
-        s += "\""
-    }
-    
-    // Пытаемся исправить незакрытые скобки
-    var openBraces = 0
-    var openBrackets = 0
-    
-    for (char in s) {
-        when (char) {
-            '{' -> openBraces++
-            '}' -> openBraces--
-            '[' -> openBrackets++
-            ']' -> openBrackets--
-        }
-    }
-    
-    // Добавляем недостающие закрывающие скобки
-    repeat(openBraces) { s += "}" }
-    repeat(openBrackets) { s += "]" }
-    
-    return s.trim()
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel()
 ) {
+    Log.d("ChatScreen", "ChatScreen composable called")
+    
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val apiKey by viewModel.apiKey.collectAsState()
+    val isGeneratingImage by viewModel.isGeneratingImage.collectAsState()
     
-    var messageText by remember { mutableStateOf("") }
-    var showApiKeyDialog by remember { mutableStateOf(false) }
-    var showClearChatDialog by remember { mutableStateOf(false) }
+    Log.d("ChatScreen", "collectAsState completed, messages.size = ${messages.size}")
     
     val listState = rememberLazyListState()
-    val focusRequester = remember { FocusRequester() }
-    val scope = rememberCoroutineScope()
+    var inputText by remember { mutableStateOf("") }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+    // Загружаем сообщения при создании экрана
+    LaunchedEffect(Unit) {
+        Log.d("ChatScreen", "LaunchedEffect started")
+        try {
+            Log.d("ChatScreen", "About to call viewModel.loadMessages()")
+            viewModel.loadMessages()
+            Log.d("ChatScreen", "viewModel.loadMessages() called successfully")
+        } catch (e: Exception) {
+            Log.e("ChatScreen", "Error in LaunchedEffect: ${e.message}")
         }
     }
+    
+    // Логируем изменения состояния
+    LaunchedEffect(messages) {
+        Log.d("ChatScreen", "Messages state changed: ${messages.size} messages")
+    }
+    
+    LaunchedEffect(isLoading) {
+        Log.d("ChatScreen", "Loading state changed: $isLoading")
+    }
+    
+    LaunchedEffect(isGeneratingImage) {
+        Log.d("ChatScreen", "Image generation state changed: $isGeneratingImage")
+    }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = { showApiKeyDialog = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
-                    }
-                    IconButton(onClick = { showClearChatDialog = true }) {
-                        Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.menu_clear_chat))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
-    ) { paddingValues ->
-        Column(
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        // Заголовок с кнопкой настроек
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Список сообщений
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                reverseLayout = true
-            ) {
-                items(messages.reversed()) { message ->
-                    MessageItem(message = message)
-                    Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.app_name),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Row {
+                // Кнопка очистки для тестирования
+                TextButton(
+                    onClick = { 
+                        Log.d("ChatScreen", "Clear messages button clicked")
+                        viewModel.clearMessages()
+                    }
+                ) {
+                    Text("Clear")
                 }
                 
-                if (isLoading) {
-                    item {
-                        LoadingIndicator()
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                IconButton(onClick = { showSettingsDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings"
+                    )
+                }
+            }
+        }
+
+        // Список сообщений
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            state = listState,
+            reverseLayout = true,
+            contentPadding = PaddingValues(vertical = 8.dp)
+        ) {
+            // Ограничиваем количество отображаемых сообщений для предотвращения ANR
+            val displayMessages = messages.takeLast(50) // Показываем только последние 50 сообщений
+            
+            Log.d("ChatScreen", "Rendering ${displayMessages.size} messages out of ${messages.size} total")
+            
+            items(
+                items = displayMessages.reversed(),
+                key = { message -> message.id } // Добавляем ключи для оптимизации
+            ) { message ->
+                when {
+                    message.isImageGeneration -> ImageMessageItem(message)
+                    else -> MessageItem(message)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        // Индикатор загрузки
+        if (isLoading || isGeneratingImage) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isGeneratingImage) "Generating image..." else "Thinking...",
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                // Кнопка отмены для генерации изображения
+                if (isGeneratingImage) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                    TextButton(
+                        onClick = { 
+                            // Отменяем текущую операцию
+                            viewModel.cancelImageGeneration()
+                        }
+                    ) {
+                        Text("Cancel", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
+        }
 
-            // Поле ввода сообщения
-            MessageInput(
-                value = messageText,
-                onValueChange = { messageText = it },
-                onSendClick = {
-                    if (messageText.isNotBlank()) {
-                        viewModel.sendMessage(messageText)
-                        messageText = ""
-                        scope.launch {
-                            focusRequester.requestFocus()
-                        }
+        // Поле ввода
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = inputText,
+                onValueChange = { inputText = it },
+                modifier = Modifier.weight(1f),
+                placeholder = {
+                    Text(
+                        text = if (isGeneratingImage) "Generating image..." else "Type your message or request an image...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                enabled = !isLoading && !isGeneratingImage,
+                singleLine = true
+            )
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            IconButton(
+                onClick = {
+                    if (inputText.isNotBlank()) {
+                        viewModel.sendMessage(inputText)
+                        inputText = ""
                     }
                 },
-                isLoading = isLoading,
-                focusRequester = focusRequester
-            )
+                enabled = inputText.isNotBlank() && !isLoading && !isGeneratingImage
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Send,
+                    contentDescription = "Send"
+                )
+            }
+        }
+
+        // Подсказки
+        if (messages.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "💡 Try these examples:",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "• Ask a question: 'What is artificial intelligence?'",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "• Generate image: 'Сгенерируй изображение: кот в очках'",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 
-    // Диалог для ввода API ключа
-    if (showApiKeyDialog) {
-        ApiKeyDialog(
-            currentApiKey = apiKey,
-            onApiKeyChange = { newApiKey ->
-                viewModel.setApiKey(newApiKey)
-            },
-            onDismiss = { showApiKeyDialog = false }
-        )
-    }
-
-    // Диалог подтверждения очистки чата
-    if (showClearChatDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearChatDialog = false },
-            title = { Text(stringResource(R.string.menu_clear_chat)) },
-            text = { Text("") },
-            confirmButton = {
-                TextButton(onClick = { 
-                    viewModel.clearChat()
-                    showClearChatDialog = false
-                }) {
-                    Text(stringResource(R.string.menu_clear_chat))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearChatDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
+    // Диалог настроек
+    if (showSettingsDialog) {
+        SettingsDialog(
+            onDismiss = { showSettingsDialog = false }
         )
     }
 }
@@ -278,7 +319,7 @@ fun MessageItem(message: ChatMessage) {
         
         Card(
             modifier = Modifier
-                .widthIn(max = 280.dp)
+                .widthIn(max = if (message.isUser) 280.dp else 320.dp)
                 .padding(vertical = 2.dp),
             colors = CardDefaults.cardColors(containerColor = backgroundColor),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -295,292 +336,145 @@ fun MessageItem(message: ChatMessage) {
 }
 
 @Composable
-fun LoadingIndicator() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.Start
+fun ImageMessageItem(message: ChatMessage) {
+    val backgroundColor = MaterialTheme.colorScheme.tertiaryContainer
+    val textColor = MaterialTheme.colorScheme.onTertiaryContainer
+    
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
     ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .padding(12.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(vertical = 4.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Image Generated",
+                fontSize = 12.sp,
+                color = textColor,
+            )
+        }
+        
+        Card(
+            modifier = Modifier
+                .widthIn(max = 320.dp)
+                .padding(vertical = 2.dp),
+            colors = CardDefaults.cardColors(containerColor = backgroundColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp)
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp
-                )
                 Text(
-                    text = stringResource(R.string.loading),
+                    text = message.content,
+                    color = textColor,
                     fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
+                
+                // Отображение изображения - безопасная загрузка через Coil
+                message.imageUrl?.let { imagePath ->
+                    // Показываем путь к изображению
+                    Text(
+                        text = "Image: $imagePath",
+                        color = textColor.copy(alpha = 0.7f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    
+                    // Безопасная загрузка изображения через Coil
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(imagePath)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Generated image: ${message.imagePrompt}",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessageInput(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSendClick: () -> Unit,
-    isLoading: Boolean,
-    focusRequester: FocusRequester
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier
-                .weight(1f)
-                .focusRequester(focusRequester),
-            placeholder = { Text(stringResource(R.string.chat_hint)) },
-            maxLines = 4,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(
-                onSend = { onSendClick() }
-            ),
-            enabled = !isLoading
-        )
-        
-        Spacer(modifier = Modifier.width(8.dp))
-        
-        FloatingActionButton(
-            onClick = onSendClick,
-            modifier = Modifier.size(56.dp)
-        ) {
-            Icon(
-                Icons.Default.Send,
-                contentDescription = stringResource(R.string.send),
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ApiKeyDialog(
-    currentApiKey: String,
-    onApiKeyChange: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var apiKey by remember { mutableStateOf(currentApiKey) }
+fun SettingsDialog(onDismiss: () -> Unit) {
+    var ollamaIp by remember { mutableStateOf("192.168.1.6") }
+    var ollamaPort by remember { mutableStateOf("11434") }
+    var hostIp by remember { mutableStateOf("192.168.1.6") }
     
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.api_key_dialog_title)) },
+        title = { Text("Settings") },
         text = {
-            Column {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+            ) {
                 Text(
-                    stringResource(R.string.api_key_dialog_description),
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    text = "Ollama Server:",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
                 OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
-                    placeholder = { Text(stringResource(R.string.api_key_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    value = ollamaIp,
+                    onValueChange = { ollamaIp = it },
+                    label = { Text("IP Address") },
+                    modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = ollamaPort,
+                    onValueChange = { ollamaPort = it },
+                    label = { Text("Port") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
                 Text(
-                    stringResource(R.string.api_key_help),
+                    text = "MCP Server (for images):",
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                OutlinedTextField(
+                    value = hostIp,
+                    onValueChange = { hostIp = it },
+                    label = { Text("Host IP") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "💡 For emulator: use 10.0.2.2\n💡 For real device: use your computer's IP",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
         confirmButton = {
-            TextButton(
-                onClick = {
-                    onApiKeyChange(apiKey)
-                    onDismiss()
-                }
-            ) {
-                Text(stringResource(R.string.save))
+            TextButton(onClick = onDismiss) {
+                Text("Save")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+                Text("Cancel")
             }
         }
     )
-}
-
-@Composable
-fun JsonTable(json: String) {
-    var error: String? by remember { mutableStateOf(null) }
-    var jsonObject: JSONObject? = null
-    var jsonArray: JSONArray? = null
-    var isValidJson by remember { mutableStateOf(false) }
-
-    val cleaned = cleanJsonString(json)
-
-    try {
-        if (cleaned.trim().startsWith("{")) {
-            jsonObject = JSONObject(cleaned)
-            isValidJson = true
-        } else if (cleaned.trim().startsWith("[")) {
-            jsonArray = JSONArray(cleaned)
-            isValidJson = true
-        } else {
-            error = "Could not recognize JSON format"
-        }
-    } catch (e: Exception) {
-        error = "JSON parsing error: ${e.localizedMessage}"
-    }
-
-    if (error != null) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                "📝 AI Response:",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = json,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        RoundedCornerShape(8.dp)
-                    )
-                    .padding(12.dp)
-            )
-        }
-        return
-    }
-
-    if (jsonObject != null) {
-        val keyCount = jsonObject.length()
-        Text(
-            "📊 Structured Data ($keyCount fields):",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        JsonObjectTable(jsonObject)
-    } else if (jsonArray != null) {
-        val arrayLength = jsonArray.length()
-        Text(
-            "📋 List ($arrayLength items):",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        JsonArrayTable(jsonArray)
-    }
-}
-
-@Composable
-fun JsonObjectTable(obj: JSONObject) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .padding(12.dp)
-    ) {
-        var isFirst = true
-        for (key in obj.keys()) {
-            if (!isFirst) {
-                Divider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                )
-            }
-            isFirst = false
-            
-            val value = obj.get(key)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = key.replace("_", " ").replaceFirstChar { it.uppercase() },
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(0.4f)
-                )
-                if (value is JSONObject) {
-                    JsonObjectTable(value)
-                } else if (value is JSONArray) {
-                    JsonArrayTable(value)
-                } else {
-                    Text(
-                        text = value.toString(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(0.6f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun JsonArrayTable(array: JSONArray) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .padding(12.dp)
-            .heightIn(max = 400.dp)
-    ) {
-        items(array.length()) { i ->
-            val value = array.get(i)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "•",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                if (value is JSONObject) {
-                    JsonObjectTable(value)
-                } else if (value is JSONArray) {
-                    JsonArrayTable(value)
-                } else {
-                    Text(
-                        text = value.toString(),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            if (i < array.length() - 1) {
-                Divider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                )
-            }
-        }
-    }
 }

@@ -2,16 +2,22 @@ package com.tayrinn.aiadvent.data.repository
 
 import com.tayrinn.aiadvent.data.api.OllamaApi
 import com.tayrinn.aiadvent.data.database.ChatMessageDao
-import com.tayrinn.aiadvent.data.model.*
+import com.tayrinn.aiadvent.data.model.ChatMessage
+import com.tayrinn.aiadvent.data.model.OllamaRequest
+import com.tayrinn.aiadvent.data.model.OllamaOptions
+import com.tayrinn.aiadvent.data.service.ImageGenerationService
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import android.util.Log
 
 class ChatRepository @Inject constructor(
     private val ollamaApi: OllamaApi,
-    private val chatMessageDao: ChatMessageDao
+    private val chatMessageDao: ChatMessageDao,
+    private val imageGenerationService: ImageGenerationService
 ) {
+    
     // Системные сообщения для двух агентов
     private val agent1SystemMessage = """You are Agent 1 - a helpful AI assistant. Your task:
     
@@ -39,14 +45,15 @@ Rules:
 - Be constructive and helpful
 - Keep responses concise but insightful
 - Respond in English only"""
-
-    suspend fun getAllMessages(): Flow<List<ChatMessage>> = chatMessageDao.getAllMessages()
-    suspend fun insertMessage(message: ChatMessage) = chatMessageDao.insertMessage(message)
-    suspend fun deleteAllMessages() = chatMessageDao.deleteAllMessages()
-
+    
     suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             try {
+                // Проверяем, является ли сообщение запросом на генерацию изображения
+                if (isImageGenerationRequest(content)) {
+                    return@withContext Pair("", "") // Обрабатывается отдельно в ViewModel
+                }
+                
                 // Агент 1: Отвечает на вопрос пользователя
                 val agent1Prompt = buildString {
                     appendLine(agent1SystemMessage)
@@ -109,5 +116,51 @@ Rules:
                 Pair("Error: ${e.message}", "Error: ${e.message}")
             }
         }
+    }
+    
+    suspend fun generateImage(prompt: String, style: String = "DEFAULT"): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                imageGenerationService.generateImage(prompt, style)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+    
+    private fun isImageGenerationRequest(content: String): Boolean {
+        val lowerContent = content.lowercase()
+        return lowerContent.contains("сгенерируй") && 
+               (lowerContent.contains("изображение") || lowerContent.contains("картинку") || lowerContent.contains("рисунок")) ||
+               lowerContent.contains("generate") && 
+               (lowerContent.contains("image") || lowerContent.contains("picture") || lowerContent.contains("drawing"))
+    }
+    
+    suspend fun insertMessage(message: ChatMessage) {
+        chatMessageDao.insertMessage(message)
+    }
+    
+    fun getAllMessages(): Flow<List<ChatMessage>> {
+        return chatMessageDao.getAllMessages()
+    }
+    
+    suspend fun getAllMessagesSync(): List<ChatMessage> {
+        Log.d("ChatRepository", "getAllMessagesSync called")
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d("ChatRepository", "Inside withContext(Dispatchers.IO), thread: ${Thread.currentThread().name}")
+                Log.d("ChatRepository", "About to call chatMessageDao.getAllMessagesSync()")
+                val messages = chatMessageDao.getAllMessagesSync()
+                Log.d("ChatRepository", "Successfully received ${messages.size} messages from DAO")
+                messages
+            } catch (e: Exception) {
+                Log.e("ChatRepository", "Error in getAllMessagesSync: ${e.message}")
+                throw e
+            }
+        }
+    }
+    
+    suspend fun clearMessages() {
+        chatMessageDao.deleteAllMessages()
     }
 }
