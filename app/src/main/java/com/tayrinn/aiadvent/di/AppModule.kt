@@ -6,6 +6,7 @@ import com.tayrinn.aiadvent.data.api.KandinskyApi
 import com.tayrinn.aiadvent.data.database.ChatDatabase
 import com.tayrinn.aiadvent.data.database.ChatMessageDao
 import com.tayrinn.aiadvent.data.preferences.AppPreferences
+import com.tayrinn.aiadvent.data.preferences.ApiLimitsPreferences
 import com.tayrinn.aiadvent.data.repository.ChatRepository
 import com.tayrinn.aiadvent.data.service.ImageGenerationService
 import dagger.Module
@@ -90,14 +91,15 @@ object AppModule {
         return database.chatMessageDao()
     }
 
-    @Provides
-    @Singleton
-    fun provideImageGenerationService(
-        kandinskyApi: KandinskyApi,
-        @ApplicationContext context: Context
-    ): ImageGenerationService {
-        return ImageGenerationService(kandinskyApi, context)
-    }
+                    @Provides
+                @Singleton
+                fun provideImageGenerationService(
+                    kandinskyApi: KandinskyApi,
+                    @ApplicationContext context: Context,
+                    apiLimitsPreferences: ApiLimitsPreferences
+                ): ImageGenerationService {
+                    return ImageGenerationService(kandinskyApi, context, apiLimitsPreferences)
+                }
 
     @Provides
     @Singleton

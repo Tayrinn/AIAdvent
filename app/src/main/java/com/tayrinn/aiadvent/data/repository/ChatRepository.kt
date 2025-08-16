@@ -5,6 +5,7 @@ import com.tayrinn.aiadvent.data.database.ChatMessageDao
 import com.tayrinn.aiadvent.data.model.ChatMessage
 import com.tayrinn.aiadvent.data.model.OllamaRequest
 import com.tayrinn.aiadvent.data.model.OllamaOptions
+import com.tayrinn.aiadvent.data.model.ApiLimits
 import com.tayrinn.aiadvent.data.service.ImageGenerationService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
@@ -144,21 +145,43 @@ Rules:
         return chatMessageDao.getAllMessages()
     }
     
-    suspend fun getAllMessagesSync(): List<ChatMessage> {
-        Log.d("ChatRepository", "getAllMessagesSync called")
-        return withContext(Dispatchers.IO) {
-            try {
-                Log.d("ChatRepository", "Inside withContext(Dispatchers.IO), thread: ${Thread.currentThread().name}")
-                Log.d("ChatRepository", "About to call chatMessageDao.getAllMessagesSync()")
-                val messages = chatMessageDao.getAllMessagesSync()
-                Log.d("ChatRepository", "Successfully received ${messages.size} messages from DAO")
-                messages
-            } catch (e: Exception) {
-                Log.e("ChatRepository", "Error in getAllMessagesSync: ${e.message}")
-                throw e
-            }
-        }
-    }
+                    suspend fun getAllMessagesSync(): List<ChatMessage> {
+                    Log.d("ChatRepository", "getAllMessagesSync called")
+                    return withContext(Dispatchers.IO) {
+                        try {
+                            Log.d("ChatRepository", "Inside withContext(Dispatchers.IO), thread: ${Thread.currentThread().name}")
+                            Log.d("ChatRepository", "About to call chatMessageDao.getAllMessagesSync()")
+                            val messages = chatMessageDao.getAllMessagesSync()
+                            Log.d("ChatRepository", "Successfully received ${messages.size} messages from DAO")
+                            messages
+                        } catch (e: Exception) {
+                            Log.e("ChatRepository", "Error in getAllMessagesSync: ${e.message}")
+                            throw e
+                        }
+                    }
+                }
+                
+                suspend fun getApiLimits(): ApiLimits? {
+                    return withContext(Dispatchers.IO) {
+                        try {
+                            val result = imageGenerationService.getApiLimits()
+                            result.getOrNull()
+                        } catch (e: Exception) {
+                            Log.e("ChatRepository", "Error getting API limits: ${e.message}")
+                            null
+                        }
+                    }
+                }
+                
+                suspend fun decreaseApiLimits() {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            imageGenerationService.decreaseRemainingGenerations()
+                        } catch (e: Exception) {
+                            Log.e("ChatRepository", "Error decreasing API limits: ${e.message}")
+                        }
+                    }
+                }
     
     suspend fun clearMessages() {
         chatMessageDao.deleteAllMessages()

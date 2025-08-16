@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,9 +37,10 @@ fun ChatScreen(
 ) {
     Log.d("ChatScreen", "ChatScreen composable called")
     
-    val messages by viewModel.messages.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isGeneratingImage by viewModel.isGeneratingImage.collectAsState()
+                    val messages by viewModel.messages.collectAsState()
+                val isLoading by viewModel.isLoading.collectAsState()
+                val isGeneratingImage by viewModel.isGeneratingImage.collectAsState()
+                val apiLimits by viewModel.apiLimits.collectAsState()
     
     Log.d("ChatScreen", "collectAsState completed, messages.size = ${messages.size}")
     
@@ -90,26 +92,63 @@ fun ChatScreen(
                 fontWeight = FontWeight.Bold
             )
             
-            Row {
-                // Кнопка очистки для тестирования
-                TextButton(
-                    onClick = { 
-                        Log.d("ChatScreen", "Clear messages button clicked")
-                        viewModel.clearMessages()
-                    }
-                ) {
-                    Text("Clear")
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                IconButton(onClick = { showSettingsDialog = true }) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings"
-                    )
-                }
-            }
+                                    Row {
+                            // Отображение лимитов API
+                            apiLimits?.let { limits ->
+                                Card(
+                                    modifier = Modifier.padding(end = 8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (limits.isLimitReached) 
+                                            MaterialTheme.colorScheme.errorContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = if (limits.isLimitReached) 
+                                                MaterialTheme.colorScheme.onErrorContainer 
+                                            else 
+                                                MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${limits.remainingGenerations}/${limits.totalGenerations}",
+                                            fontSize = 12.sp,
+                                            color = if (limits.isLimitReached) 
+                                                MaterialTheme.colorScheme.onErrorContainer 
+                                            else 
+                                                MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Кнопка очистки для тестирования
+                            TextButton(
+                                onClick = {
+                                    Log.d("ChatScreen", "Clear messages button clicked")
+                                    viewModel.clearMessages()
+                                }
+                            ) {
+                                Text("Clear")
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            IconButton(onClick = { showSettingsDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Settings"
+                                )
+                            }
+                        }
         }
 
         // Список сообщений

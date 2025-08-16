@@ -7,6 +7,8 @@ import android.util.Log
 import com.tayrinn.aiadvent.data.api.KandinskyApi
 import com.tayrinn.aiadvent.data.api.KandinskyRequest
 import com.tayrinn.aiadvent.data.api.GenerateParams
+import com.tayrinn.aiadvent.data.model.ApiLimits
+import com.tayrinn.aiadvent.data.preferences.ApiLimitsPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
@@ -20,10 +22,11 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-class ImageGenerationService @Inject constructor(
-    private val kandinskyApi: KandinskyApi,
-    private val context: Context
-) {
+            class ImageGenerationService @Inject constructor(
+                private val kandinskyApi: KandinskyApi,
+                private val context: Context,
+                private val apiLimitsPreferences: ApiLimitsPreferences
+            ) {
     
     companion object {
         private const val TAG = "ImageGenerationService"
@@ -179,4 +182,32 @@ class ImageGenerationService @Inject constructor(
             executor.shutdownNow()
         }
     }
+    
+                    suspend fun getApiLimits(): Result<ApiLimits> = withContext(Dispatchers.IO) {
+                    try {
+                        Log.d(TAG, "Getting API limits from local storage...")
+                        val remaining = apiLimitsPreferences.getRemainingGenerations()
+                        val total = apiLimitsPreferences.getTotalGenerations()
+                        val resetDate = apiLimitsPreferences.getResetDate()
+                        
+                        val limits = ApiLimits(remaining, total, resetDate)
+                        Log.d(TAG, "API limits loaded: ${limits.remainingGenerations}/${limits.totalGenerations}")
+                        Result.success(limits)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get API limits", e)
+                        Result.failure(e)
+                    }
+                }
+                
+                suspend fun decreaseRemainingGenerations(): Result<Unit> = withContext(Dispatchers.IO) {
+                    try {
+                        Log.d(TAG, "Decreasing remaining generations count")
+                        apiLimitsPreferences.decreaseRemainingGenerations()
+                        Log.d(TAG, "Remaining generations decreased to: ${apiLimitsPreferences.getRemainingGenerations()}")
+                        Result.success(Unit)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to decrease generations count", e)
+                        Result.failure(e)
+                    }
+                }
 }

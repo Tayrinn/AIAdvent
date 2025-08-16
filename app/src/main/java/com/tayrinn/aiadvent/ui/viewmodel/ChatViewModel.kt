@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tayrinn.aiadvent.data.model.ChatMessage
+import com.tayrinn.aiadvent.data.model.ApiLimits
 import com.tayrinn.aiadvent.data.repository.ChatRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,8 +31,11 @@ class ChatViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     
-    private val _isGeneratingImage = MutableStateFlow(false)
-    val isGeneratingImage: StateFlow<Boolean> = _isGeneratingImage.asStateFlow()
+                    private val _isGeneratingImage = MutableStateFlow(false)
+                val isGeneratingImage: StateFlow<Boolean> = _isGeneratingImage.asStateFlow()
+
+                private val _apiLimits = MutableStateFlow<ApiLimits?>(null)
+                val apiLimits: StateFlow<ApiLimits?> = _apiLimits.asStateFlow()
     
     init {
         Log.d(TAG, "ChatViewModel init called")
@@ -56,13 +60,18 @@ class ChatViewModel @Inject constructor(
             }
         }
         
-        // ПОДПИСЫВАЕМСЯ НА FLOW ДЛЯ АВТОМАТИЧЕСКИХ ОБНОВЛЕНИЙ
-        viewModelScope.launch {
-            repository.getAllMessages().collect { messages ->
-                Log.d(TAG, "Flow update received: ${messages.size} messages")
-                _messages.value = messages
-            }
-        }
+                            // ПОДПИСЫВАЕМСЯ НА FLOW ДЛЯ АВТОМАТИЧЕСКИХ ОБНОВЛЕНИЙ
+                    viewModelScope.launch {
+                        repository.getAllMessages().collect { messages ->
+                            Log.d(TAG, "Flow update received: ${messages.size} messages")
+                            _messages.value = messages
+                        }
+                    }
+                    
+                    // ЗАГРУЖАЕМ ЛИМИТЫ API
+                    viewModelScope.launch {
+                        loadApiLimits()
+                    }
     }
     
     override fun onCleared() {
@@ -136,19 +145,24 @@ class ChatViewModel @Inject constructor(
             }
             Log.d("ChatViewModel", "Repository result received")
             
-            result.fold(
-                onSuccess = { imagePath ->
-                    Log.d("ChatViewModel", "Image generated successfully: $imagePath")
-                    // Сохраняем сообщение с изображением
-                    val imageMessage = ChatMessage(
-                        content = "🎨 **Generated Image:** $imagePrompt",
-                        isUser = false,
-                        isImageGeneration = true,
-                        imageUrl = imagePath,
-                        imagePrompt = imagePrompt
-                    )
-                    repository.insertMessage(imageMessage)
-                },
+                                    result.fold(
+                            onSuccess = { imagePath ->
+                                Log.d("ChatViewModel", "Image generated successfully: $imagePath")
+                                // Уменьшаем счетчик лимитов
+                                repository.decreaseApiLimits()
+                                // Обновляем лимиты
+                                loadApiLimits()
+                                
+                                // Сохраняем сообщение с изображением
+                                val imageMessage = ChatMessage(
+                                    content = "🎨 **Generated Image:** $imagePrompt",
+                                    isUser = false,
+                                    isImageGeneration = true,
+                                    imageUrl = imagePath,
+                                    imagePrompt = imagePrompt
+                                )
+                                repository.insertMessage(imageMessage)
+                            },
                 onFailure = { exception ->
                     Log.e("ChatViewModel", "Image generation failed: ${exception.message}")
                     val errorMessage = ChatMessage(
@@ -230,9 +244,26 @@ class ChatViewModel @Inject constructor(
         }
     }
     
-    fun cancelImageGeneration() {
-        // Просто сбрасываем флаги - операция завершится по таймауту
-        _isGeneratingImage.value = false
-        _isLoading.value = false
-    }
+                    fun cancelImageGeneration() {
+                    // Просто сбрасываем флаги - операция завершится по таймауту
+                    _isGeneratingImage.value = false
+                    _isLoading.value = false
+                }
+                
+                private suspend fun loadApiLimits() {
+                    try {
+                        Log.d(TAG, "Loading API limits...")
+                        val limits = repository.getApiLimits()
+                        _apiLimits.value = limits
+                        Log.d(TAG, "API limits loaded: ${limits?.remainingGenerations}/${limits?.totalGenerations}")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to load API limits: ${e.message}")
+                    }
+                }
+                
+                fun refreshApiLimits() {
+                    viewModelScope.launch {
+                        loadApiLimits()
+                    }
+                }
 }

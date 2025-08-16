@@ -152,6 +152,8 @@ class FusionBrainAPI:
                 await asyncio.sleep(delay)
         
         return None
+    
+
 
 @app.post("/generate", response_model=GenerateResponse)
 async def generate_image(request: GenerateRequest):
@@ -278,6 +280,8 @@ async def root():
             "health": "/health"
         }
     }
+
+
 
 if __name__ == "__main__":
     # Создаем папку для изображений
