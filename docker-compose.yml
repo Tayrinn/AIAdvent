@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  mcp-server:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - KANDINSKY_API_KEY=${KANDINSKY_API_KEY}
+      - KANDINSKY_SECRET_KEY=${KANDINSKY_SECRET_KEY}
+    volumes:
+      - ./images:/tmp/android_images
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cat-network
+
+  daily-cat-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.daily
+    environment:
+      - KANDINSKY_API_KEY=${KANDINSKY_API_KEY}
+      - KANDINSKY_SECRET_KEY=${KANDINSKY_SECRET_KEY}
+      - GMAIL_USERNAME=${GMAIL_USERNAME}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - REMAINING_GENERATIONS=${REMAINING_GENERATIONS}
+      - TOTAL_GENERATIONS=${TOTAL_GENERATIONS}
+    volumes:
+      - ./images:/tmp/android_images
+      - ./logs:/var/log
+    restart: unless-stopped
+    depends_on:
+      - mcp-server
+    networks:
+      - cat-network
+
+networks:
+  cat-network:
+    driver: bridge

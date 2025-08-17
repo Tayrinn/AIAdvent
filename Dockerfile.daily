@@ -1,0 +1,35 @@
+FROM python:3.11-slim
+
+# Устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y \
+    curl \
+    cron \
+    && rm -rf /var/lib/apt/lists/*
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Копируем requirements.txt
+COPY requirements.txt .
+
+# Устанавливаем Python зависимости
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем скрипт генератора
+COPY daily_cat_generator.py .
+COPY .env .
+
+# Создаем cron задачу для ежедневного запуска в 20:00
+RUN echo "0 20 * * * cd /app && python daily_cat_generator.py >> /var/log/cron.log 2>&1" > /etc/cron.d/daily-cat
+RUN chmod 0644 /etc/cron.d/daily-cat
+RUN crontab /etc/cron.d/daily-cat
+
+# Создаем папку для логов
+RUN mkdir -p /var/log
+
+# Создаем entrypoint скрипт
+RUN echo '#!/bin/bash\ncron -f' > /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Запускаем cron в фоновом режиме
+ENTRYPOINT ["/entrypoint.sh"]
