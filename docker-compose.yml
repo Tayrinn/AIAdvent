@@ -5,9 +5,13 @@ services:
     build: .
     ports:
       - "8000:8000"
+    env_file:
+      - .env
+      - .contentful.env
     environment:
       - KANDINSKY_API_KEY=${KANDINSKY_API_KEY}
       - KANDINSKY_SECRET_KEY=${KANDINSKY_SECRET_KEY}
+      - IMAGE_BASE_URL=http://mcp-server:8000
     volumes:
       - ./images:/tmp/android_images
     restart: unless-stopped
@@ -23,6 +27,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.daily
+    env_file:
+      - .env
+      - .contentful.env
     environment:
       - KANDINSKY_API_KEY=${KANDINSKY_API_KEY}
       - KANDINSKY_SECRET_KEY=${KANDINSKY_SECRET_KEY}
@@ -30,6 +37,7 @@ services:
       - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
       - REMAINING_GENERATIONS=${REMAINING_GENERATIONS}
       - TOTAL_GENERATIONS=${TOTAL_GENERATIONS}
+      - MCP_SERVER_URL=http://mcp-server:8000
     volumes:
       - ./images:/tmp/android_images
       - ./logs:/var/log

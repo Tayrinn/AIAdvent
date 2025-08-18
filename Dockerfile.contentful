@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем package.json
+COPY package.json .
+
+# Устанавливаем зависимости
+RUN npm install
+
+# Копируем код приложения
+COPY . .
+
+# Открываем порт
+EXPOSE 3000
+
+# Запускаем Contentful MCP сервер
+CMD ["npx", "-y", "@contentful/mcp-server"]

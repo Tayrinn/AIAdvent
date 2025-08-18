@@ -1,5 +1,7 @@
 # Environment variables
 .env
+.contentful.env
+CONTENTFUL_SETUP.md
 .env.local
 .env.production
 

@@ -47,6 +47,11 @@ FUSIONBRAIN_API_KEY = os.getenv("KANDINSKY_API_KEY")
 FUSIONBRAIN_SECRET_KEY = os.getenv("KANDINSKY_SECRET_KEY")
 FUSIONBRAIN_BASE_URL = "https://api-key.fusionbrain.ai/"
 
+# Базовый URL, по которому клиенты будут обращаться к изображениям
+# В docker-compose для межконтейнерного доступа используйте http://mcp-server:8000
+# Локально по умолчанию используется http://localhost:8000
+IMAGE_BASE_URL = os.getenv("IMAGE_BASE_URL", "http://localhost:8000")
+
 # Проверяем наличие API ключей
 if not FUSIONBRAIN_API_KEY or not FUSIONBRAIN_SECRET_KEY:
     logger.error("Missing API keys! Please set KANDINSKY_API_KEY and KANDINSKY_SECRET_KEY environment variables")
@@ -190,7 +195,7 @@ async def generate_image(request: GenerateRequest):
                 
                 return GenerateResponse(
                     result="Demo image generated successfully",
-                    imageUrl=f"http://10.0.2.2:8000/images/{image_filename}"
+                    imageUrl=f"{IMAGE_BASE_URL}/images/{image_filename}"
                 )
             except Exception as demo_error:
                 logger.error(f"Demo generation also failed: {demo_error}")
@@ -254,7 +259,7 @@ async def generate_fusionbrain_image(prompt: str, style: str = "DEFAULT") -> Gen
                 
                 return GenerateResponse(
                     result="FusionBrain image generated successfully",
-                    imageUrl=f"http://10.0.2.2:8000/images/{image_filename}"
+                    imageUrl=f"{IMAGE_BASE_URL}/images/{image_filename}"
                 )
                 
             except Exception as e:

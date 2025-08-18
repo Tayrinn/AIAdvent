@@ -17,6 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем скрипт генератора
 COPY daily_cat_generator.py .
+
+# Копируем модуль Contentful интеграции
+COPY contentful_integration.py .
+
+# Копируем переменные окружения
 COPY .env .
 
 # Создаем cron задачу для ежедневного запуска в 20:00

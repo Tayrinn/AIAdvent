@@ -1,0 +1,21 @@
+{
+  "name": "contentful-mcp-server",
+  "version": "1.0.0",
+  "description": "Contentful MCP Server for Daily Cat Generator",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx -y @contentful/mcp-server",
+    "dev": "npx -y @contentful/mcp-server --dev"
+  },
+  "dependencies": {
+    "@contentful/mcp-server": "latest"
+  },
+  "keywords": [
+    "contentful",
+    "mcp",
+    "cats",
+    "ai"
+  ],
+  "author": "Daily Cat Generator",
+  "license": "MIT"
+}

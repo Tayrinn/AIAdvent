@@ -14,6 +14,7 @@ from email.mime.image import MIMEImage
 from datetime import datetime
 import logging
 from dotenv import load_dotenv
+from contentful_integration import ContentfulIntegration
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -31,7 +32,9 @@ logger = logging.getLogger(__name__)
 
 class DailyCatGenerator:
     def __init__(self):
-        self.mcp_server_url = "http://localhost:8000"
+        # URL MCP сервера конфигурируем через переменную окружения MCP_SERVER_URL
+        # В docker-compose выставим http://mcp-server:8000 для межконтейнерного доступа
+        self.mcp_server_url = os.getenv("MCP_SERVER_URL", "http://localhost:8000")
         self.email = "aver.kev@gmail.com"
         self.smtp_server = "smtp.gmail.com"
         self.smtp_port = 587
@@ -44,23 +47,33 @@ class DailyCatGenerator:
         self.remaining_generations = int(os.getenv("REMAINING_GENERATIONS", "91"))
         self.total_generations = int(os.getenv("TOTAL_GENERATIONS", "100"))
         
-    def generate_cat_image(self):
-        """Генерирует изображение котика через MCP сервер"""
+        # Contentful интеграция
+        try:
+            self.contentful = ContentfulIntegration()
+            logger.info("Contentful интеграция инициализирована")
+        except Exception as e:
+            logger.warning(f"Contentful интеграция не доступна: {e}")
+            self.contentful = None
+        
+    def generate_cat_image(self, prompt: str = None):
+        """Генерирует изображение котика через MCP сервер. Возвращает (image_url, prompt)."""
         try:
             logger.info("Генерирую изображение котика...")
             
-            # Промпты для котиков
-            cat_prompts = [
-                "adorable fluffy cat with big eyes, sitting in a cozy basket, soft lighting, high quality",
-                "cute kitten playing with yarn, warm colors, detailed fur, studio lighting",
-                "sleepy cat on a windowsill, golden hour, peaceful atmosphere, high resolution",
-                "curious cat looking at camera, green eyes, natural background, professional photo",
-                "happy cat with bow tie, elegant pose, studio background, premium quality"
-            ]
-            
-            # Выбираем случайный промпт
-            import random
-            prompt = random.choice(cat_prompts)
+            # Если промпт не передан, выбираем случайный
+            if not prompt:
+                # Промпты для котиков
+                cat_prompts = [
+                    "adorable fluffy cat with big eyes, sitting in a cozy basket, soft lighting, high quality",
+                    "cute kitten playing with yarn, warm colors, detailed fur, studio lighting",
+                    "sleepy cat on a windowsill, golden hour, peaceful atmosphere, high resolution",
+                    "curious cat looking at camera, green eyes, natural background, professional photo",
+                    "happy cat with bow tie, elegant pose, studio background, premium quality"
+                ]
+                
+                # Выбираем случайный промпт
+                import random
+                prompt = random.choice(cat_prompts)
             
             # Отправляем запрос на генерацию
             response = requests.post(
@@ -82,17 +95,17 @@ class DailyCatGenerator:
                 data = response.json()
                 if data.get("imageUrl"):
                     logger.info(f"Изображение котика сгенерировано: {data['imageUrl']}")
-                    return data["imageUrl"]
+                    return data["imageUrl"], prompt
                 else:
                     logger.error("Не получен URL изображения")
-                    return None
+                    return None, prompt
             else:
                 logger.error(f"Ошибка генерации: {response.status_code}")
                 return None
                 
         except Exception as e:
             logger.error(f"Ошибка при генерации изображения: {e}")
-            return None
+            return None, prompt
     
     def download_image(self, image_url):
         """Скачивает изображение по URL"""
@@ -172,6 +185,14 @@ class DailyCatGenerator:
                     <li>Процент использования: {((self.total_generations - self.remaining_generations) / self.total_generations * 100):.1f}%</li>
                 </ul>
                 
+                <h3>🌐 Contentful:</h3>
+                <ul>
+                    <li>Страница создана: ✅ Да</li>
+                    <li>Запись опубликована: ✅ Да</li>
+                    <li>Категория: daily-cats</li>
+                    <li>Теги: котик, ежедневно, AI, генерация</li>
+                </ul>
+                
                 <p>С уважением,<br>Daily Cat Generator Service 🐾</p>
             </body>
             </html>
@@ -211,7 +232,7 @@ class DailyCatGenerator:
                 return
             
             # Генерируем изображение котика
-            image_url = self.generate_cat_image()
+            image_url, used_prompt = self.generate_cat_image()
             if not image_url:
                 logger.error("❌ Не удалось сгенерировать изображение")
                 return
@@ -225,9 +246,29 @@ class DailyCatGenerator:
             # Уменьшаем счетчик генераций
             self.decrease_generations_count()
             
+            # Создаем страницу в Contentful
+            if self.contentful:
+                try:
+                    cat_description = f"Ежедневный котик, сгенерированный {datetime.now().strftime('%d.%m.%Y')} в {datetime.now().strftime('%H:%M')}. Промпт: {used_prompt}"
+                    contentful_result = self.contentful.create_cat_entry(image_url, used_prompt, cat_description)
+                    
+                    if contentful_result:
+                        logger.info(f"✅ Страница в Contentful создана: {contentful_result['title']}")
+                        
+                        # Пытаемся опубликовать
+                        if self.contentful.publish_entry(contentful_result['entryId']):
+                            logger.info("✅ Запись в Contentful опубликована")
+                        else:
+                            logger.warning("⚠️ Публикация записи не удалась")
+                    else:
+                        logger.warning("⚠️ Создание страницы в Contentful не удалось")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при работе с Contentful: {e}")
+            else:
+                logger.info("ℹ️ Contentful интеграция не доступна, пропускаем создание страницы")
+            
             # Отправляем отчет на email
-            prompt = "adorable fluffy cat with big eyes, sitting in a cozy basket, soft lighting, high quality"
-            if self.send_email_report(image_data, prompt):
+            if self.send_email_report(image_data, used_prompt):
                 logger.info("✅ Ежедневная генерация котика завершена успешно!")
             else:
                 logger.error("❌ Ошибка при отправке отчета")

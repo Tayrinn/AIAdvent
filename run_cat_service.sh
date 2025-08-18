@@ -59,6 +59,10 @@ check_env() {
         exit 1
     fi
     
+    if [ -z "$CONTENTFUL_MANAGEMENT_ACCESS_TOKEN" ] || [ -z "$CONTENTFUL_SPACE_ID" ] || [ -z "$CONTENTFUL_ENVIRONMENT_ID" ]; then
+        print_warning "Не настроены переменные Contentful. Страницы в CMS не будут создаваться"
+    fi
+    
     if [ -z "$GMAIL_USERNAME" ] || [ "$GMAIL_USERNAME" = "your_email@gmail.com" ]; then
         print_warning "Не настроен Gmail username. Email уведомления не будут работать"
     fi
@@ -140,9 +144,36 @@ test_generation() {
     if echo "$response" | grep -q "imageUrl"; then
         print_success "Тестовая генерация прошла успешно!"
         echo "Ответ: $response"
+        
+        # Тестируем Contentful интеграцию
+        test_contentful_integration
     else
         print_error "Тестовая генерация не удалась"
         echo "Ответ: $response"
+    fi
+}
+
+# Тестируем Contentful интеграцию
+test_contentful_integration() {
+    print_info "Тестирую Contentful интеграцию..."
+    
+    # Проверяем переменные окружения
+    if [ -n "$CONTENTFUL_MANAGEMENT_ACCESS_TOKEN" ] && [ -n "$CONTENTFUL_SPACE_ID" ] && [ -n "$CONTENTFUL_ENVIRONMENT_ID" ]; then
+        print_success "Contentful переменные окружения настроены"
+        
+        # Тестируем подключение к Contentful
+        test_response=$(curl -s -X GET \
+            "https://api.contentful.com/spaces/$CONTENTFUL_SPACE_ID/environments/$CONTENTFUL_ENVIRONMENT_ID/entries" \
+            -H "Authorization: Bearer $CONTENTFUL_MANAGEMENT_ACCESS_TOKEN" \
+            -H "Content-Type: application/vnd.contentful.management.v1+json")
+        
+        if echo "$test_response" | grep -q "items"; then
+            print_success "Contentful API доступен и работает"
+        else
+            print_warning "Contentful API недоступен или не работает"
+        fi
+    else
+        print_warning "Contentful переменные окружения не настроены"
     fi
 }
 
