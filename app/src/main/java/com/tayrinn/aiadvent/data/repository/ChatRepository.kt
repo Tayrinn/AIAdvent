@@ -12,11 +12,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import android.util.Log
+import android.content.Context
 
 class ChatRepository @Inject constructor(
     private val ollamaApi: OllamaApi,
     private val chatMessageDao: ChatMessageDao,
-    private val imageGenerationService: ImageGenerationService
+    private val imageGenerationService: ImageGenerationService,
+    private val context: Context
 ) {
     
     // Системные сообщения для двух агентов
@@ -185,5 +187,9 @@ Rules:
     
     suspend fun clearMessages() {
         chatMessageDao.deleteAllMessages()
+    }
+    
+    fun getContext(): Context {
+        return context
     }
 }

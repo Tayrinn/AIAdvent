@@ -92,28 +92,34 @@ class ChatViewModel @Inject constructor(
                 repository.insertMessage(userMessage)
                 _isLoading.value = true
                 
-                // Проверяем, является ли это запросом на генерацию изображения
-                if (isImageGenerationRequest(content)) {
-                    generateImage(content)
-                } else {
-                    // Обычный текстовый ответ без сложных таймаутов
-                    val (agent1Response, agent2Response) = repository.sendMessage(content, _messages.value)
-                    
-                    // Сохраняем ответ Агента 1
-                    val agent1Message = ChatMessage(
-                        content = "🤖 **Agent 1:** $agent1Response",
-                        isUser = false,
-                        isAgent1 = true
-                    )
-                    repository.insertMessage(agent1Message)
-                    
-                    // Сохраняем ответ Агента 2
-                    val agent2Message = ChatMessage(
-                        content = "🔍 **Agent 2 (Enhancement):** $agent2Response",
-                        isUser = false,
-                        isAgent2 = true
-                    )
-                    repository.insertMessage(agent2Message)
+                // Проверяем специальные команды
+                when {
+                    content.lowercase().contains("run tests") -> {
+                        runTests()
+                    }
+                    isImageGenerationRequest(content) -> {
+                        generateImage(content)
+                    }
+                    else -> {
+                        // Обычный текстовый ответ без сложных таймаутов
+                        val (agent1Response, agent2Response) = repository.sendMessage(content, _messages.value)
+                        
+                        // Сохраняем ответ Агента 1
+                        val agent1Message = ChatMessage(
+                            content = "🤖 **Agent 1:** $agent1Response",
+                            isUser = false,
+                            isAgent1 = true
+                        )
+                        repository.insertMessage(agent1Message)
+                        
+                        // Сохраняем ответ Агента 2
+                        val agent2Message = ChatMessage(
+                            content = "🔍 **Agent 2 (Enhancement):** $agent2Response",
+                            isUser = false,
+                            isAgent2 = true
+                        )
+                        repository.insertMessage(agent2Message)
+                    }
                 }
                 
             } catch (e: Exception) {
@@ -126,6 +132,37 @@ class ChatViewModel @Inject constructor(
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+    
+    private suspend fun runTests() {
+        Log.d(TAG, "Running tests...")
+        
+        try {
+            // Создаем TestRunner
+            val testRunner = com.tayrinn.aiadvent.util.TestRunner(repository.getContext())
+            
+            // Запускаем тесты
+            val testReport = testRunner.runTests()
+            
+            // Сохраняем отчет о тестах
+            val testMessage = ChatMessage(
+                content = testReport.getSummary(),
+                isUser = false,
+                isTestReport = true
+            )
+            repository.insertMessage(testMessage)
+            
+            Log.d(TAG, "Tests completed: ${testReport.passedTests} passed, ${testReport.failedTests} failed")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error running tests: ${e.message}")
+            val errorMessage = ChatMessage(
+                content = "Error running tests: ${e.message}",
+                isUser = false,
+                isError = true
+            )
+            repository.insertMessage(errorMessage)
         }
     }
     

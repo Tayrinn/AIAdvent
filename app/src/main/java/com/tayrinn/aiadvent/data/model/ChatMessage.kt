@@ -14,6 +14,7 @@ data class ChatMessage(
     val isAgent1: Boolean = false,
     val isAgent2: Boolean = false,
     val isImageGeneration: Boolean = false,
+    val isTestReport: Boolean = false,
     val imageUrl: String? = null,
     val imagePrompt: String? = null
 )

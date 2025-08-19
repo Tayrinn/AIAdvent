@@ -106,8 +106,9 @@ object AppModule {
     fun provideChatRepository(
         ollamaApi: OllamaApi,
         chatMessageDao: ChatMessageDao,
-        imageGenerationService: ImageGenerationService
+        imageGenerationService: ImageGenerationService,
+        @ApplicationContext context: Context
     ): ChatRepository {
-        return ChatRepository(ollamaApi, chatMessageDao, imageGenerationService)
+        return ChatRepository(ollamaApi, chatMessageDao, imageGenerationService, context)
     }
 }
