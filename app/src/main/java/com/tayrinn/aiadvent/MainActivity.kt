@@ -14,9 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.tayrinn.aiadvent.ui.screens.ChatScreen
 import com.tayrinn.aiadvent.ui.theme.AIAdventTheme
-import dagger.hilt.android.AndroidEntryPoint
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     
     companion object {

@@ -6,18 +6,15 @@ import androidx.lifecycle.viewModelScope
 import com.tayrinn.aiadvent.data.model.ChatMessage
 import com.tayrinn.aiadvent.data.model.ApiLimits
 import com.tayrinn.aiadvent.data.repository.ChatRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@HiltViewModel
-class ChatViewModel @Inject constructor(
+class ChatViewModel(
     private val repository: ChatRepository
 ) : ViewModel() {
     

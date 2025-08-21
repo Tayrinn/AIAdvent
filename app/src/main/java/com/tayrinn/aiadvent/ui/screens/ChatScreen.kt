@@ -23,17 +23,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.tayrinn.aiadvent.R
 import com.tayrinn.aiadvent.data.model.ChatMessage
 import com.tayrinn.aiadvent.ui.viewmodel.ChatViewModel
+import com.tayrinn.aiadvent.ui.viewmodel.ChatViewModelFactory
+import androidx.lifecycle.viewmodel.compose.viewModel
 import java.io.File
+import com.tayrinn.aiadvent.data.repository.ChatRepository
 
 @Composable
 fun ChatScreen(
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = viewModel(factory = ChatViewModelFactory(createRepository()))
 ) {
     Log.d("ChatScreen", "ChatScreen composable called")
     
@@ -516,4 +518,32 @@ fun SettingsDialog(onDismiss: () -> Unit) {
             }
         }
     )
+}
+
+@Composable
+fun createRepository(): ChatRepository {
+    val context = LocalContext.current
+    
+    // Создаем Retrofit для Ollama API
+    val ollamaRetrofit = retrofit2.Retrofit.Builder()
+        .baseUrl("http://192.168.1.6:11434/")
+        .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+        .build()
+    val ollamaApi = ollamaRetrofit.create(com.tayrinn.aiadvent.data.api.OllamaApi::class.java)
+    
+    // Создаем Retrofit для Kandinsky API
+    val kandinskyRetrofit = retrofit2.Retrofit.Builder()
+        .baseUrl("http://192.168.1.6:8000/")
+        .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+        .build()
+    val kandinskyApi = kandinskyRetrofit.create(com.tayrinn.aiadvent.data.api.KandinskyApi::class.java)
+    
+    val chatMessageDao = com.tayrinn.aiadvent.data.database.ChatDatabase.getDatabase(context).chatMessageDao()
+    val imageGenerationService = com.tayrinn.aiadvent.data.service.ImageGenerationService(
+        kandinskyApi,
+        context,
+        com.tayrinn.aiadvent.data.preferences.ApiLimitsPreferences(context)
+    )
+    
+    return ChatRepository(ollamaApi, chatMessageDao, imageGenerationService, context)
 }

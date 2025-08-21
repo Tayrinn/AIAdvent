@@ -20,9 +20,8 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
 
-            class ImageGenerationService @Inject constructor(
+class ImageGenerationService(
                 private val kandinskyApi: KandinskyApi,
                 private val context: Context,
                 private val apiLimitsPreferences: ApiLimitsPreferences

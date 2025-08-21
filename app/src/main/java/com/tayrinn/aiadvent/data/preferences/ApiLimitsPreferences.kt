@@ -2,13 +2,9 @@ package com.tayrinn.aiadvent.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class ApiLimitsPreferences @Inject constructor(
-    @ApplicationContext private val context: Context
+class ApiLimitsPreferences(
+    private val context: Context
 ) {
     companion object {
         private const val PREFS_NAME = "api_limits_prefs"

@@ -10,11 +10,10 @@ import com.tayrinn.aiadvent.data.service.ImageGenerationService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 import android.util.Log
 import android.content.Context
 
-class ChatRepository @Inject constructor(
+class ChatRepository(
     private val ollamaApi: OllamaApi,
     private val chatMessageDao: ChatMessageDao,
     private val imageGenerationService: ImageGenerationService,

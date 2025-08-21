@@ -5,6 +5,11 @@ CONTENTFUL_SETUP.md
 .env.local
 .env.production
 
+# Configuration files with sensitive data
+config.properties
+*.env
+local.properties
+
 # Python
 __pycache__/
 *.py[cod]
