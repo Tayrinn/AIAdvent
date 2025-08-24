@@ -1,0 +1,124 @@
+<idea-plugin>
+    <id>com.tayrinn.aiadvent.desktop</id>
+    <name>AIAdvent Desktop</name>
+    <vendor email="support@tayrinn.com" url="https://github.com/tayrinn/aiadvent">Tayrinn</vendor>
+
+    <description><![CDATA[
+        <h2>AIAdvent Desktop - AI-Powered Development Assistant</h2>
+        
+        <p><strong>AIAdvent Desktop</strong> - это мощный инструмент для разработчиков, использующий искусственный интеллект для автоматизации процессов разработки и тестирования.</p>
+        
+        <h3>🚀 Основные возможности:</h3>
+        <ul>
+            <li><strong>AI-ассистент:</strong> Интеграция с OpenAI ChatGPT для помощи в разработке</li>
+            <li><strong>Генерация тестов:</strong> Автоматическое создание unit-тестов на основе исходного кода</li>
+            <li><strong>Анализ кода:</strong> AI-анализ качества и рекомендации по улучшению</li>
+            <li><strong>Кроссплатформенность:</strong> Работает на Windows, macOS и Linux</li>
+            <li><strong>Современный UI:</strong> Красивый интерфейс на основе Compose Multiplatform</li>
+        </ul>
+        
+        <h3>🧪 Генерация тестов:</h3>
+        <p>Загрузите любой исходный файл (Kotlin, Java, Python) и получите автоматически сгенерированные unit-тесты с помощью AI.</p>
+        
+        <h3>🔍 Анализ кода:</h3>
+        <p>Получите детальный анализ вашего кода с рекомендациями по улучшению, безопасности и производительности.</p>
+        
+        <h3>💬 AI-помощник:</h3>
+        <p>Задавайте вопросы о коде, получайте объяснения алгоритмов и помощь в решении проблем разработки.</p>
+        
+        <h3>📱 Поддерживаемые платформы:</h3>
+        <ul>
+            <li>Windows (x64)</li>
+            <li>macOS (Intel & Apple Silicon)</li>
+            <li>Linux (x64)</li>
+        </ul>
+        
+        <h3>🔧 Технологии:</h3>
+        <ul>
+            <li>Kotlin Multiplatform</li>
+            <li>Compose Multiplatform</li>
+            <li>OpenAI ChatGPT API</li>
+            <li>Gradle</li>
+        </ul>
+        
+        <h3>📚 Как использовать:</h3>
+        <ol>
+            <li>Запустите приложение</li>
+            <li>Настройте OpenAI API ключ в config.properties</li>
+            <li>Используйте кнопку "📁 Открыть файл" для анализа кода</li>
+            <li>Получите сгенерированные тесты и отчеты</li>
+        </ol>
+        
+        <h3>🌐 Дополнительная информация:</h3>
+        <p>Документация: <a href="https://github.com/tayrinn/aiadvent">GitHub Repository</a></p>
+        <p>Поддержка: <a href="mailto:support@tayrinn.com">support@tayrinn.com</a></p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>org.jetbrains.kotlin</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Основное расширение приложения -->
+        <applicationService 
+            serviceImplementation="com.tayrinn.aiadvent.desktop.AIAdventApplicationService"/>
+        
+        <!-- Сервис для работы с AI -->
+        <projectService 
+            serviceImplementation="com.tayrinn.aiadvent.desktop.AIAdventProjectService"/>
+    </extensions>
+
+    <project-components>
+        <component>
+            <implementation-class>com.tayrinn.aiadvent.desktop.AIAdventProjectComponent</implementation-class>
+        </component>
+    </project-components>
+
+    <actions>
+        <!-- Действие для открытия главного окна -->
+        <action id="AIAdvent.OpenMainWindow" 
+                class="com.tayrinn.aiadvent.desktop.actions.OpenMainWindowAction" 
+                text="Open AIAdvent Desktop" 
+                description="Open AIAdvent Desktop main window">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        
+        <!-- Действие для анализа текущего файла -->
+        <action id="AIAdvent.AnalyzeCurrentFile" 
+                class="com.tayrinn.aiadvent.desktop.actions.AnalyzeCurrentFileAction" 
+                text="Analyze with AI" 
+                description="Analyze current file using AI">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+
+    <application-components>
+        <component>
+            <implementation-class>com.tayrinn.aiadvent.desktop.AIAdventApplicationComponent</implementation-class>
+        </component>
+    </application-components>
+
+    <version>1.0.0</version>
+    <idea-version since-build="231" until-build="241.*"/>
+    
+    <change-notes><![CDATA[
+        <h3>Version 1.0.0 - Initial Release</h3>
+        <ul>
+            <li>🎉 Первый релиз AIAdvent Desktop</li>
+            <li>🧠 Интеграция с OpenAI ChatGPT API</li>
+            <li>🧪 Автоматическая генерация unit-тестов</li>
+            <li>🔍 AI-анализ качества кода</li>
+            <li>📱 Кроссплатформенный UI на Compose Multiplatform</li>
+            <li>💬 Интеллектуальный помощник для разработчиков</li>
+        </ul>
+        
+        <h4>Новые возможности:</h4>
+        <ul>
+            <li>Поддержка Kotlin, Java и Python файлов</li>
+            <li>Генерация тестов с помощью AI</li>
+            <li>Детальный анализ результатов тестирования</li>
+            <li>Современный и интуитивный интерфейс</li>
+            <li>Безопасное хранение API ключей</li>
+        </ul>
+    ]]></change-notes>
+</idea-plugin>

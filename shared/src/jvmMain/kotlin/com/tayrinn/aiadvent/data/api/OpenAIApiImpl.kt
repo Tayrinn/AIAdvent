@@ -1,7 +1,6 @@
 package com.tayrinn.aiadvent.data.api
 
 import com.tayrinn.aiadvent.data.model.*
-import com.tayrinn.aiadvent.util.ConfigService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -20,16 +19,9 @@ actual class OpenAIApiImpl : OpenAIApi {
         prettyPrint = true
     }
     
-    // Конфигурация OpenAI API
-    private val configService = ConfigService()
-    private val apiKey: String
+    // OpenAI API key - загружается из переменных окружения
+    private val apiKey = System.getenv("OPENAI_API_KEY")
     private val baseUrl = "https://api.openai.com/v1"
-    
-    init {
-        configService.loadConfig()
-        apiKey = configService.getProperty("openai.api.key")
-        println("🔑 OpenAI API Key loaded from config: ${apiKey.take(10)}...")
-    }
     
     override suspend fun chatCompletion(request: OpenAIRequest): OpenAIResponse = withContext(Dispatchers.IO) {
         try {

@@ -8,7 +8,14 @@ CONTENTFUL_SETUP.md
 # Configuration files with sensitive data
 config.properties
 *.env
+env.local
 local.properties
+
+# Keep example files
+!env.local.example
+
+# Shell scripts
+load_env.sh
 
 # Python
 __pycache__/
