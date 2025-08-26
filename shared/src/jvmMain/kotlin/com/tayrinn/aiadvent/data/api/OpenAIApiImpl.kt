@@ -113,7 +113,7 @@ actual class OpenAIApiImpl : OpenAIApi {
             
             // Отправляем запрос к OpenAI
             val request = OpenAIRequest(
-                model = "gpt-3.5-turbo",
+                model = "gpt-5",
                 messages = messages,
                 maxTokens = 1000,
                 temperature = 0.7

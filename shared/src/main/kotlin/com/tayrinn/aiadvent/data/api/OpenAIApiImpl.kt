@@ -11,10 +11,15 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
+import java.net.URL
+import java.net.HttpURLConnection
 
 class OpenAIApiImplInternal : OpenAIApi {
     
-    private val httpClient = HttpClient.newBuilder().build()
+    private val httpClient = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(30))
+        .build()
     private val json = Json { 
         ignoreUnknownKeys = true
         prettyPrint = true
@@ -23,18 +28,20 @@ class OpenAIApiImplInternal : OpenAIApi {
     
     // Конфигурация OpenAI API
     private val configService = ConfigService()
-    private val apiKey: String
-    private val defaultModel: String
-    private val maxTokens: Int
-    private val temperature: Double
+    private var apiKey: String = ""
+    private var defaultModel: String = "gpt-5"
+    private var maxTokens: Int = 2000
+    private var isGpt5: Boolean = true
+
     
     // Проверяем формат API ключа
     init {
         configService.loadConfig()
         apiKey = configService.getProperty("openai.api.key")
-        defaultModel = configService.getProperty("openai.api.model", "gpt-3.5-turbo")
+        defaultModel = configService.getProperty("openai.api.model", "gpt-5")
         maxTokens = configService.getIntProperty("openai.api.max_tokens", 2000)
-        temperature = configService.getDoubleProperty("openai.api.temperature", 0.7)
+        isGpt5 = defaultModel.startsWith("gpt-5")
+
         
         println("🔑 OpenAI API Key format check:")
         println("   Length: ${apiKey.length}")
@@ -46,24 +53,49 @@ class OpenAIApiImplInternal : OpenAIApi {
         val testRequest = OpenAIRequest(
             model = defaultModel,
             messages = listOf(OpenAIMessage("user", "test")),
-            maxTokens = maxTokens,
-            temperature = temperature
+            maxCompletionTokens = maxTokens
         )
         val testJson = json.encodeToString(testRequest)
         println("   Test JSON: $testJson")
     }
     private val baseUrl = "https://api.openai.com/v1"
     
-    override suspend fun chatCompletion(request: OpenAIRequest): OpenAIResponse = withContext(Dispatchers.IO) {
+        override suspend fun chatCompletion(request: OpenAIRequest): OpenAIResponse = withContext(Dispatchers.IO) {
         try {
+            // Проверяем доступность API
+            println("🔍 Проверяем доступность OpenAI API...")
+            try {
+                val testRequest = HttpRequest.newBuilder()
+                    .uri(URI.create("$baseUrl/models"))
+                    .header("Authorization", "Bearer $apiKey")
+                    .GET()
+                    .timeout(Duration.ofSeconds(10))
+                    .build()
+                
+                val testResponse = httpClient.send(testRequest, HttpResponse.BodyHandlers.ofString())
+                if (testResponse.statusCode() == 200) {
+                    println("✅ OpenAI API доступен")
+                } else {
+                    println("⚠️ OpenAI API отвечает с кодом: ${testResponse.statusCode()}")
+                }
+            } catch (e: Exception) {
+                println("⚠️ Не удалось проверить доступность API: ${e.message}")
+            }
+            
             // Детальное логирование объекта запроса
             println("🔍 OpenAI Request Object:")
             println("   Model: ${request.model}")
             println("   Messages count: ${request.messages.size}")
-            println("   Max tokens: ${request.maxTokens}")
-            println("   Temperature: ${request.temperature}")
+            println("   Max completion tokens: ${request.maxCompletionTokens}")
             
             val requestBody = json.encodeToString(request)
+            
+            // Проверяем размер запроса
+            val requestSize = requestBody.length
+            println("📏 Размер запроса: $requestSize символов")
+            if (requestSize > 10000) {
+                println("⚠️ Запрос очень большой (>10KB), это может вызывать проблемы")
+            }
             
             // Детальное логирование для диагностики
             println("🔍 OpenAI API Request:")
@@ -71,29 +103,40 @@ class OpenAIApiImplInternal : OpenAIApi {
             println("   Headers: Content-Type=application/json, Authorization=Bearer ${apiKey.take(10)}...")
             println("   Request Body: $requestBody")
             
-            val httpRequest = HttpRequest.newBuilder()
-                .uri(URI.create("$baseUrl/chat/completions"))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer $apiKey")
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .build()
+            // Пробуем через HttpURLConnection вместо HttpClient
+            println("🔄 Используем HttpURLConnection...")
             
-            val response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString())
+            val url = URL("$baseUrl/chat/completions")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("Authorization", "Bearer $apiKey")
+            connection.setRequestProperty("User-Agent", "AIAdvent/1.0")
+            connection.setRequestProperty("Accept", "application/json")
+            connection.connectTimeout = 30000
+            connection.readTimeout = 120000
+            connection.doOutput = true
             
-            // Детальное логирование ответа
+            // Отправляем данные
+            connection.outputStream.use { os ->
+                os.write(requestBody.toByteArray())
+                os.flush()
+            }
+            
+            val responseCode = connection.responseCode
             println("🔍 OpenAI API Response:")
-            println("   Status Code: ${response.statusCode()}")
-            println("   Response Headers: ${response.headers()}")
-            println("   Response Body: ${response.body()}")
+            println("   Status Code: $responseCode")
             
-            if (response.statusCode() == 200) {
-                json.decodeFromString<OpenAIResponse>(response.body())
+            if (responseCode == 200) {
+                val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                println("   Response Body: $responseBody")
+                val result = json.decodeFromString<OpenAIResponse>(responseBody)
+                println("✅ Успешный ответ получен")
+                result
             } else {
-                // Handle error response
-                val errorBody = response.body()
-                println("❌ OpenAI API Error (${response.statusCode()}): $errorBody")
+                val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Unknown error"
+                println("❌ OpenAI API Error ($responseCode): $errorBody")
                 
-                // Return error as response
                 OpenAIResponse(
                     id = "error",
                     `object` = "chat.completion",
@@ -104,7 +147,7 @@ class OpenAIApiImplInternal : OpenAIApi {
                             index = 0,
                             message = OpenAIMessage(
                                 role = "assistant",
-                                content = "Извините, произошла ошибка при обращении к ChatGPT API. Код ошибки: ${response.statusCode()}"
+                                content = "Извините, произошла ошибка при обращении к ChatGPT API. Код ошибки: $responseCode"
                             ),
                             finishReason = "error"
                         )
@@ -112,8 +155,38 @@ class OpenAIApiImplInternal : OpenAIApi {
                 )
             }
         } catch (e: Exception) {
-            println("Exception calling OpenAI API: ${e.message}")
+            println("❌ Exception calling OpenAI API: ${e.message}")
+            println("❌ Exception type: ${e.javaClass.simpleName}")
             e.printStackTrace()
+            
+            // Детальная диагностика сетевых проблем
+            when (e) {
+                is java.net.ConnectException -> {
+                    println("🌐 Проблема с подключением к серверу")
+                    println("   Проверьте интернет-соединение")
+                    println("   Возможно, заблокирован доступ к api.openai.com")
+                }
+                is java.net.SocketTimeoutException -> {
+                    println("⏰ Таймаут соединения")
+                    println("   Сервер не отвечает в течение 2 минут")
+                    println("   Попробуйте позже")
+                }
+                is java.io.IOException -> {
+                    if (e.message?.contains("Connection reset") == true) {
+                        println("🔄 Соединение сброшено сервером")
+                        println("   Возможные причины:")
+                        println("   - Нестабильное интернет-соединение")
+                        println("   - Firewall/Proxy блокирует соединение")
+                        println("   - Сервер OpenAI перегружен")
+                        println("   - Проблемы с API ключом")
+                    } else {
+                        println("📡 Ошибка ввода-вывода: ${e.message}")
+                    }
+                }
+                else -> {
+                    println("❓ Неизвестная ошибка: ${e.javaClass.simpleName}")
+                }
+            }
             
             // Return error response
             OpenAIResponse(
@@ -137,7 +210,8 @@ class OpenAIApiImplInternal : OpenAIApi {
     
     override suspend fun sendMessage(
         message: String, 
-        conversationHistory: List<ChatMessage>
+        conversationHistory: List<ChatMessage>,
+        maxTokensParam: Int?
     ): Pair<String, String> = withContext(Dispatchers.IO) {
         try {
             // Создаем контекст из истории разговора
@@ -165,16 +239,17 @@ class OpenAIApiImplInternal : OpenAIApi {
             val request = OpenAIRequest(
                 model = defaultModel,
                 messages = messages,
-                maxTokens = maxTokens,
-                temperature = temperature
+                maxCompletionTokens = maxTokensParam ?: maxTokens
             )
             
             // Дополнительное логирование запроса
             println("🔍 OpenAI Request Details:")
             println("   Model: ${request.model}")
             println("   Messages count: ${request.messages.size}")
-            println("   Max tokens: ${request.maxTokens}")
-            println("   Temperature: ${request.temperature}")
+            println("   Max completion tokens: ${request.maxCompletionTokens}")
+            println("   Is GPT-5: $isGpt5")
+            println("   Max tokens param: $maxTokensParam")
+            println("   Default max tokens: $maxTokens")
             
             val response = chatCompletion(request)
             

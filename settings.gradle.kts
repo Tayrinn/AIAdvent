@@ -1,8 +1,11 @@
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.7.0"
-}
+// ⚠️ ВАЖНО: НЕ УДАЛЯТЬ ЭТОТ ФАЙЛ!
+// Этот файл критически важен для работы Gradle проекта
+// Без него проект не соберется!
 
 rootProject.name = "AIAdvent"
 
 include(":shared")
 include(":desktop")
+
+
+

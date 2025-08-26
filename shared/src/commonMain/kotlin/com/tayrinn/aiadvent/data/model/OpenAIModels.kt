@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class OpenAIRequest(
-    val model: String = "gpt-3.5-turbo",
+    val model: String = "gpt-5",
     val messages: List<OpenAIMessage>,
     @SerialName("max_tokens")
     val maxTokens: Int = 1000,

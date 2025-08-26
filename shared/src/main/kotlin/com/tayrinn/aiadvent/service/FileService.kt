@@ -35,6 +35,13 @@ class FileService {
     }
     
     /**
+     * Получает имя файла из пути
+     */
+    fun getFileName(filePath: String): String {
+        return File(filePath).name
+    }
+    
+    /**
      * Генерирует имя файла для тестов
      */
     fun generateTestFileName(originalFileName: String): String {

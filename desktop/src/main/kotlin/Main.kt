@@ -33,6 +33,7 @@ fun App() {
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val inputText = remember { mutableStateOf("") }
     val isLoading = remember { mutableStateOf(false) }
+    val temperature = remember { mutableStateOf(0.7f) }
     val scope = rememberCoroutineScope()
     val testRunner = remember { TestRunner() }
     
@@ -42,9 +43,10 @@ fun App() {
     
     // Создаем сервисы для работы с тестами
     val fileService = remember { FileService() }
+    val bugFixService = remember { BugFixService(chatRepository) }
     val testGenerationService = remember { TestGenerationService(openAIApi) }
     val testExecutionService = remember { TestExecutionService() }
-    val testWorkflowService = remember { TestWorkflowService(fileService, testGenerationService, testExecutionService) }
+    val testWorkflowService = remember { TestWorkflowService(fileService, bugFixService, testGenerationService, testExecutionService) }
     
     // Добавляем тестовое сообщение при запуске
     LaunchedEffect(Unit) {
@@ -93,10 +95,10 @@ fun App() {
                                 // Анализируем файл и генерируем тесты
                                 isLoading.value = true
                                 try {
-                                    val result = testWorkflowService.processFileForTesting(selectedFile)
+                                    val result = testWorkflowService.executeTestWorkflow(selectedFile)
                                     messages.add(
                                         ChatMessage(
-                                            content = "🧪 Результат работы с тестами:\n\n$result",
+                                            content = "🧪 **Тесты (🌡️ ${String.format("%.1f", temperature.value)}):**\n\n$result",
                                             isUser = false,
                                             isAgent1 = true
                                         )
@@ -119,6 +121,64 @@ fun App() {
                 ) {
                     Text("📁 Открыть файл")
                 }
+            }
+            
+            // Ползунок температуры
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🌡️ Температура модели:",
+                    modifier = Modifier.width(150.dp),
+                    fontSize = 14.sp
+                )
+                
+                Slider(
+                    value = temperature.value,
+                    onValueChange = { temperature.value = it },
+                    valueRange = 0.0f..2.0f,
+                    steps = 19, // 0.1 шаг
+                    modifier = Modifier.weight(1f)
+                )
+                
+                Text(
+                    text = "${String.format("%.1f", temperature.value)}",
+                    modifier = Modifier.width(50.dp),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // Кнопка сброса температуры
+                OutlinedButton(
+                    onClick = { temperature.value = 0.7f },
+                    modifier = Modifier.width(100.dp)
+                ) {
+                    Text("Сброс")
+                }
+            }
+            
+            // Информация о температуре
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = when {
+                        temperature.value < 0.5f -> "❄️ Низкая креативность (точные ответы)"
+                        temperature.value < 1.0f -> "🌤️ Средняя креативность (сбалансированные ответы)"
+                        temperature.value < 1.5f -> "🔥 Высокая креативность (креативные ответы)"
+                        else -> "💥 Максимальная креативность (очень креативные ответы)"
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             
             // Список сообщений
@@ -208,7 +268,7 @@ fun App() {
                                             
                                             messages.add(
                                                 ChatMessage(
-                                                    content = "🤖 **ChatGPT:** $agent1Response",
+                                                    content = "🤖 **ChatGPT (🌡️ ${String.format("%.1f", temperature.value)}):** $agent1Response",
                                                     isUser = false,
                                                     isAgent1 = true
                                                 )

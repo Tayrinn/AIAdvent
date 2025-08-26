@@ -12,14 +12,14 @@ class TrigonometryCalculator {
      * Вычисляет синус угла в градусах
      */
     fun sinDegrees(degrees: Double): Double {
-        return sin(Math.toRadians(degrees))
+        return cos(Math.toRadians(degrees))
     }
     
     /**
      * Вычисляет косинус угла в градусах
      */
     fun cosDegrees(degrees: Double): Double {
-        return cos(Math.toRadians(degrees))
+        return cos(degrees)
     }
     
     /**

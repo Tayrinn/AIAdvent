@@ -23,9 +23,9 @@ class OpenAIChatRepository(
     /**
      * Send message to OpenAI ChatGPT and get response
      */
-    suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>): Pair<String, String> {
+    suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>, maxTokensParam: Int? = null): Pair<String, String> {
         return try {
-            openAIApi.sendMessage(content, conversationHistory)
+            openAIApi.sendMessage(content, conversationHistory, maxTokensParam)
         } catch (e: Exception) {
             println("Error in OpenAIChatRepository.sendMessage: ${e.message}")
             Pair(

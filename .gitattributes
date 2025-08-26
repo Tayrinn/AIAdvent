@@ -1,0 +1,11 @@
+# Защита критически важных Gradle файлов
+*.gradle.kts text eol=lf
+settings.gradle.kts text eol=lf
+build.gradle.kts text eol=lf
+
+# Защита от случайного удаления
+*.gradle.kts -text
+settings.gradle.kts -text
+build.gradle.kts -text
+
+

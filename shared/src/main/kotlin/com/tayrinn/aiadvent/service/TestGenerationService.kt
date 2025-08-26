@@ -17,8 +17,16 @@ class TestGenerationService(
     suspend fun generateTests(sourceCode: String, fileName: String): String {
         val prompt = createTestGenerationPrompt(sourceCode, fileName)
         
+        // Добавляем логирование для отладки
+        println("🔍 TestGenerationService.generateTests:")
+        println("   File name: $fileName")
+        println("   Source code length: ${sourceCode.length}")
+        println("   Source code preview: ${sourceCode.take(200)}...")
+        println("   Prompt length: ${prompt.length}")
+        println("   Prompt preview: ${prompt.take(300)}...")
+        
         val request = OpenAIRequest(
-            model = "gpt-3.5-turbo",
+            model = "gpt-5",
             messages = listOf(
                 OpenAIMessage(
                     role = "system",
@@ -40,8 +48,7 @@ class TestGenerationService(
                     content = prompt
                 )
             ),
-            maxTokens = 2000,
-            temperature = 0.3
+            maxCompletionTokens = 2000
         )
         
         return try {
@@ -71,16 +78,21 @@ class TestGenerationService(
             else -> "неизвестный язык"
         }
         
-        return """Создай unit тесты для следующего кода на языке $language.
+        val prompt = """Создай unit тесты для кода на $language.
 
-Имя файла: $fileName
-
-Исходный код:
+Файл: $fileName
+Код:
 $sourceCode
 
-Создай полные unit тесты, которые покрывают все функции и методы. 
-Используй стандартные фреймворки тестирования для $language.
-Возвращай только код тестов без дополнительных пояснений."""
+Используй стандартные фреймворки тестирования. Только код тестов."""
+        
+        // Добавляем логирование для отладки
+        println("🔍 createTestGenerationPrompt:")
+        println("   Extension: $extension")
+        println("   Language: $language")
+        println("   Source code in prompt: ${if (sourceCode.isNotEmpty()) "ПЕРЕДАН" else "НЕ ПЕРЕДАН"}")
+        
+        return prompt
     }
     
     /**
@@ -105,7 +117,7 @@ $originalCode
 Отвечай на русском языке."""
 
         val request = OpenAIRequest(
-            model = "gpt-3.5-turbo",
+            model = "gpt-5",
             messages = listOf(
                 OpenAIMessage(
                     role = "system",
@@ -116,8 +128,7 @@ $originalCode
                     content = prompt
                 )
             ),
-            maxTokens = 1500,
-            temperature = 0.2
+            maxCompletionTokens = 1500
         )
         
         return try {
