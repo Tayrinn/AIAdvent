@@ -15,6 +15,14 @@ fun testDivide() {
     // Тест с валидными значениями
     val result = calculator.divide(10.0, 2.0)
     assertEquals(5.0, result, 0.001)
+
+    // Тест с null должен бросить исключение
+    try {
+        calculator.divide(10.0, null)
+        fail("Expected IllegalArgumentException")
+    } catch (e: IllegalArgumentException) {
+        // Ожидаемое исключение
+    }
 }
 
 @Test
@@ -31,8 +39,8 @@ fun testDivideWithNull() {
 
     try {
         calculator.divide(10.0, null)
-        fail("Expected NullPointerException")
-    } catch (e: NullPointerException) {
+        fail("Expected IllegalArgumentException")
+    } catch (e: IllegalArgumentException) {
         // Ожидаемое исключение
     }
 }
@@ -44,6 +52,10 @@ fun testAdd() {
     // Базовый тест
     val result = calculator.add(5, 3)
     assertEquals(8, result)
+
+    // Тест с нулями
+    val result2 = calculator.add(0, 0)
+    assertEquals(0, result2)
 }
 
 @Test
@@ -58,8 +70,13 @@ fun testAddWithZero() {
 fun testAddWithNegative() {
     val calculator = SimpleCalculator()
 
+    // Тест с отрицательными числами
     val result = calculator.add(-2, 3)
     assertEquals(1, result)
+
+    // Тест с двумя отрицательными числами
+    val result2 = calculator.add(-5, -3)
+    assertEquals(-8, result2)
 }
 
 @Test
@@ -85,18 +102,27 @@ fun testProcessStringWithSpaces() {
     val calculator = SimpleCalculator()
 
     // Тест со строкой с пробелами
-    val result3 = calculator.processString("  hello  ")
-    assertEquals("hello", result3)
+    val result = calculator.processString("  hello  ")
+    assertEquals("hello", result)
+
+    // Тест с пустой строкой после trim
+    val result2 = calculator.processString("   ")
+    assertEquals("", result2)
 }
 
 @Test
 fun testCountToFive() {
     val calculator = SimpleCalculator()
 
-    // Базовый тест для функции countToFive
-    // TODO: Дополнить тест в соответствии с логикой функции
-    // Сигнатура: fun countToFive()
+    val result = calculator.countToFive()
 
-    assertNotNull(calculator)
+    // Проверяем, что результат не null
+    assertNotNull(result)
+
+    // Проверяем, что список содержит 5 элементов
+    assertEquals(5, result.size)
+
+    // Проверяем содержимое списка
+    assertEquals(listOf(1, 2, 3, 4, 5), result)
 }
 }

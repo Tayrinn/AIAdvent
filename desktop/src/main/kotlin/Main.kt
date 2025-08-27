@@ -47,6 +47,9 @@ fun App() {
     val testGenerationService = remember { TestGenerationService(openAIApi) }
     val testExecutionService = remember { TestExecutionService() }
     val testWorkflowService = remember { TestWorkflowService(fileService, bugFixService, testGenerationService, testExecutionService) }
+
+    // Добавляем кнопку для самотестирования
+    var showSelfTest by remember { mutableStateOf(false) }
     
     // Добавляем тестовое сообщение при запуске
     LaunchedEffect(Unit) {
@@ -79,26 +82,74 @@ fun App() {
                     fontWeight = FontWeight.Bold
                 )
                 
-                Button(
-                    onClick = {
-                        scope.launch {
-                            val selectedFile = selectFile()
-                            if (selectedFile != null) {
-                                messages.add(
-                                    ChatMessage(
-                                        content = "📁 Выбран файл: $selectedFile",
-                                        isUser = false,
-                                        isAgent1 = true
-                                    )
-                                )
-                                
-                                // Анализируем файл и генерируем тесты
-                                isLoading.value = true
-                                try {
-                                    val result = testWorkflowService.executeTestWorkflow(selectedFile)
+                Row {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val selectedFile = selectFile()
+                                if (selectedFile != null) {
                                     messages.add(
                                         ChatMessage(
-                                            content = "🧪 **Тесты (🌡️ ${String.format("%.1f", temperature.value)}):**\n\n$result",
+                                            content = "📁 Выбран файл: $selectedFile",
+                                            isUser = false,
+                                            isAgent1 = true
+                                        )
+                                    )
+
+                                    // Анализируем файл и генерируем тесты
+                                    isLoading.value = true
+                                    try {
+                                        // Callback функция для добавления сообщений
+                                        val onMessage: (String) -> Unit = { message: String ->
+                                            messages.add(
+                                                ChatMessage(
+                                                    content = message,
+                                                    isUser = false,
+                                                    isAgent1 = true
+                                                )
+                                            )
+                                        }
+
+                                        val result = testWorkflowService.executeTestWorkflow(selectedFile, onMessage)
+
+                                        // Добавляем итоговый отчет
+                                        messages.add(
+                                            ChatMessage(
+                                                content = "📋 **ИТОГОВЫЙ ОТЧЕТ:**\n\n$result",
+                                                isUser = false,
+                                                isAgent1 = true
+                                            )
+                                        )
+                                    } catch (e: Exception) {
+                                        messages.add(
+                                            ChatMessage(
+                                                content = "❌ Ошибка: ${e.message}",
+                                                isUser = false,
+                                                isError = true
+                                            )
+                                        )
+                                    } finally {
+                                        isLoading.value = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isLoading.value
+                    ) {
+                        Text("📁 Открыть файл")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isLoading.value = true
+                                try {
+                                    val selfTestResults = testGenerationService.runSelfTests()
+                                    messages.add(
+                                        ChatMessage(
+                                            content = "🧪 **РЕЗУЛЬТАТЫ САМОТЕСТИРОВАНИЯ:**\n\n$selfTestResults",
                                             isUser = false,
                                             isAgent1 = true
                                         )
@@ -106,7 +157,7 @@ fun App() {
                                 } catch (e: Exception) {
                                     messages.add(
                                         ChatMessage(
-                                            content = "❌ Ошибка: ${e.message}",
+                                            content = "❌ Ошибка самотестирования: ${e.message}",
                                             isUser = false,
                                             isError = true
                                         )
@@ -115,11 +166,44 @@ fun App() {
                                     isLoading.value = false
                                 }
                             }
-                        }
-                    },
-                    enabled = !isLoading.value
-                ) {
-                    Text("📁 Открыть файл")
+                        },
+                        enabled = !isLoading.value
+                    ) {
+                        Text("🧪 Самотест")
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isLoading.value = true
+                                try {
+                                    val debugResults = testGenerationService.debugFileParsing("SimpleTestFile.kt")
+                                    messages.add(
+                                        ChatMessage(
+                                            content = debugResults,
+                                            isUser = false,
+                                            isAgent1 = true
+                                        )
+                                    )
+                                } catch (e: Exception) {
+                                    messages.add(
+                                        ChatMessage(
+                                            content = "❌ Ошибка отладки файла: ${e.message}",
+                                            isUser = false,
+                                            isError = true
+                                        )
+                                    )
+                                } finally {
+                                    isLoading.value = false
+                                }
+                            }
+                        },
+                        enabled = !isLoading.value
+                    ) {
+                        Text("🔍 Отладка")
+                    }
                 }
             }
             

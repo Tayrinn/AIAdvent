@@ -26,6 +26,10 @@ class OpenAIChatRepository(
     suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>, maxTokensParam: Int? = null): Pair<String, String> {
         return try {
             openAIApi.sendMessage(content, conversationHistory, maxTokensParam)
+        } catch (e: com.tayrinn.aiadvent.data.api.AIModelFailureException) {
+            // Пробрасываем исключение дальше - модель не справилась с задачей
+            println("🤖 AI Model Failure in OpenAIChatRepository: ${e.message}")
+            throw e
         } catch (e: Exception) {
             println("Error in OpenAIChatRepository.sendMessage: ${e.message}")
             Pair(

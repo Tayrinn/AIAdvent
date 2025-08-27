@@ -6,6 +6,7 @@ rootProject.name = "AIAdvent"
 
 include(":shared")
 include(":desktop")
+include(":custom-tests")
 
 
 

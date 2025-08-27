@@ -20,40 +20,49 @@ class TestWorkflowService(
      * Выполняет полный workflow тестирования для файла
      */
     suspend fun executeTestWorkflow(
-        filePath: String
+        filePath: String,
+        onMessage: ((String) -> Unit)? = null
     ): String {
         return try {
             println("🚀 Запускаю workflow тестирования для файла: $filePath")
-            
+            onMessage?.invoke("🚀 **НАЧИНАЮ АНАЛИЗ ФАЙЛА:** $filePath")
+
             // 1. Читаем файл
             val sourceCode = fileService.readFile(filePath)
             val fileName = fileService.getFileName(filePath)
-            
+            onMessage?.invoke("📄 **ЧТЕНИЕ ФАЙЛА ЗАВЕРШЕНО:** Найдено ${sourceCode.length} символов")
+
             // 2. Анализируем и исправляем баги
+            onMessage?.invoke("🔍 **НАЧИНАЮ АНАЛИЗ БАГОВ...**")
             val bugAnalysis = bugFixService.analyzeAndFixBugs(sourceCode)
-            
+
             // 3. ПОКАЗЫВАЕМ АНАЛИЗ БАГОВ ОТДЕЛЬНЫМ СООБЩЕНИЕМ
             val bugAnalysisMessage = generateBugAnalysisMessage(bugAnalysis, fileName)
-            println(bugAnalysisMessage)
+            onMessage?.invoke(bugAnalysisMessage)
             
             // 4. Генерируем исправленный код
-            val fixedCode = bugFixService.generateFixedCode(sourceCode, bugAnalysis.bugs)
-            
+            onMessage?.invoke("🔧 **СОХРАНЯЮ ИСПРАВЛЕННЫЙ КОД...**")
+            val fixedCode = bugFixService.generateFixedCode(sourceCode, bugAnalysis.bugs, onMessage)
+
             // 5. Записываем исправленный код в файл
             val fixedFilePath = filePath.replace(".kt", "_Fixed.kt")
             fileService.writeFile(fixedFilePath, fixedCode)
-            println("🔧 Исправленный код сохранен в: $fixedFilePath")
-            
-            // 6. Генерируем тесты для исходного кода
-            val testCode = testGenerationService.generateTests(sourceCode, fileName)
-            
+            onMessage?.invoke("🔧 **ИСПРАВЛЕННЫЙ КОД СОХРАНЕН:** $fixedFilePath")
+
+            // 6. Генерируем тесты для исходного кода (собственная логика)
+            onMessage?.invoke("📊 **СОЗДАЮ ТЕСТЫ С ПОМОЩЬЮ СОБСТВЕННОЙ ЛОГИКИ...**")
+            val testCode = testGenerationService.generateTestsManually(sourceCode, fileName, onMessage)
+
             // 7. Записываем тесты в файл
             val testFilePath = filePath.replace(".kt", "_Test.kt")
             fileService.writeFile(testFilePath, testCode)
-            
+            onMessage?.invoke("💾 **ТЕСТЫ СОХРАНЕНЫ:** $testFilePath")
+
             // 8. Запускаем тесты
+            onMessage?.invoke("▶️ **ЗАПУСКАЮ ТЕСТЫ...**")
             val projectDir = filePath.substringBeforeLast("/")
             val testResult = testExecutionService.executeTests(testFilePath, projectDir)
+            onMessage?.invoke("✅ **ТЕСТЫ ВЫПОЛНЕНЫ**")
             
             // 9. Формируем итоговый отчет
             val finalReport = generateFinalReport(bugAnalysis, testCode, testResult, fileName)
@@ -63,7 +72,21 @@ class TestWorkflowService(
             return finalReport
             
         } catch (e: Exception) {
-            return "❌ Ошибка при обработке файла: ${e.message}"
+            // Специальная обработка для случаев, когда AI модель не справилась
+            val errorMessage = when (e) {
+                is com.tayrinn.aiadvent.data.api.AIModelFailureException -> {
+                    "🤖 **МОДЕЛЬ AI НЕ СМОГЛА СПРАВИТЬСЯ С ЗАДАЧЕЙ**\n\n" +
+                    "Причина: ${e.message}\n\n" +
+                    "Рекомендации:\n" +
+                    "• Попробуйте упростить код или разбить его на части\n" +
+                    "• Попробуйте позже - возможно, модель перегружена\n" +
+                    "• Проверьте, что код компилируется и не содержит синтаксических ошибок"
+                }
+                else -> "❌ Ошибка при обработке файла: ${e.message}"
+            }
+
+            onMessage?.invoke(errorMessage)
+            return errorMessage
         }
     }
 

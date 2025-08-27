@@ -88,32 +88,52 @@ class BugFixService(
             bugs
         } catch (e: Exception) {
             println("❌ Ошибка AI анализа: ${e.message}")
+
+            // Если AI не справилась, возвращаем специальный баг
+            if (e is com.tayrinn.aiadvent.data.api.AIModelFailureException) {
+                return listOf(Bug(
+                    line = 1,
+                    type = "ai_model_failure",
+                    description = "AI модель не смогла проанализировать код: ${e.message}",
+                    severity = "high"
+                ))
+            }
+
             emptyList()
         }
     }
 
     private fun parseAIResponse(response: String): List<Bug> {
         return try {
+            // Проверяем, что ответ не пустой
+            if (response.isBlank()) {
+                throw com.tayrinn.aiadvent.data.api.AIModelFailureException("AI модель вернула пустой ответ при анализе кода")
+            }
+
             // Простой парсинг JSON ответа
             if (response.contains("\"bugs\"")) {
                 val bugs = mutableListOf<Bug>()
                 val bugMatches = Regex("\"line\":\\s*(\\d+).*?\"type\":\\s*\"([^\"]+)\".*?\"description\":\\s*\"([^\"]+)\".*?\"severity\":\\s*\"([^\"]+)\"", RegexOption.DOT_MATCHES_ALL).findAll(response)
-                
+
                 for (match in bugMatches) {
                     val line = match.groupValues[1].toIntOrNull() ?: 1
                     val type = match.groupValues[2]
                     val description = match.groupValues[3]
                     val severity = match.groupValues[4]
-                    
+
                     bugs.add(Bug(line, type, description, severity))
                 }
                 bugs
             } else {
-                emptyList()
+                // Если ответ не содержит ожидаемую структуру, считаем это ошибкой
+                throw com.tayrinn.aiadvent.data.api.AIModelFailureException("AI модель вернула ответ в неправильном формате")
             }
+        } catch (e: com.tayrinn.aiadvent.data.api.AIModelFailureException) {
+            // Пробрасываем дальше
+            throw e
         } catch (e: Exception) {
             println("❌ Ошибка парсинга AI ответа: ${e.message}")
-            emptyList()
+            throw com.tayrinn.aiadvent.data.api.AIModelFailureException("Не удалось разобрать ответ от AI модели: ${e.message}")
         }
     }
 
@@ -154,7 +174,7 @@ class BugFixService(
     /**
      * Генерирует исправленный код с помощью AI
      */
-    suspend fun generateFixedCode(sourceCode: String, bugs: List<Bug>): String {
+    suspend fun generateFixedCode(sourceCode: String, bugs: List<Bug>, onMessage: ((String) -> Unit)? = null): String {
         if (bugs.isEmpty()) {
             return sourceCode
         }
@@ -174,10 +194,40 @@ class BugFixService(
         """.trimIndent()
 
         return try {
+            println("🔄 Отправляем запрос на генерацию исправленного кода...")
+            onMessage?.invoke("🤖 **ГЕНЕРИРУЮ ИСПРАВЛЕННЫЙ КОД...**")
             val response = openAIRepository.sendMessage(prompt, emptyList(), 4000)
-            response.first
+            val fixedCode = response.first
+
+            // Проверяем, что AI вернула непустой код
+            if (fixedCode.isBlank()) {
+                throw com.tayrinn.aiadvent.data.api.AIModelFailureException("AI модель не смогла сгенерировать исправленный код")
+            }
+
+            println("✅ Исправленный код получен от AI")
+
+            // ПОКАЗЫВАЕМ ИСПРАВЛЕННЫЙ КОД ОТДЕЛЬНЫМ СООБЩЕНИЕМ
+            val fixedCodeMessage = """
+🤖 **ИСПРАВЛЕННЫЙ КОД ОТ AI:**
+${"=".repeat(60)}
+$fixedCode
+${"=".repeat(60)}
+            """.trimIndent()
+            onMessage?.invoke(fixedCodeMessage)
+
+            fixedCode
         } catch (e: Exception) {
             println("❌ Ошибка генерации исправленного кода: ${e.message}")
+
+            val errorMessage = if (e is com.tayrinn.aiadvent.data.api.AIModelFailureException) {
+                "🤖 **МОДЕЛЬ AI НЕ СМОГЛА ИСПРАВИТЬ КОД**\n\n" +
+                "Причина: ${e.message}\n\n" +
+                "Код останется без изменений."
+            } else {
+                "❌ **ОШИБКА ГЕНЕРАЦИИ КОДА:** ${e.message}"
+            }
+
+            onMessage?.invoke(errorMessage)
             sourceCode // Возвращаем исходный код в случае ошибки
         }
     }

@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     kotlin("plugin.serialization") version "1.9.10"
+    id("java")
 }
 
 kotlin {
@@ -14,6 +15,14 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+
+
+// Задача для запуска main функции в TestGenerationService
+tasks.register<JavaExec>("runTestParser") {
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.tayrinn.aiadvent.service.TestGenerationService")
 }
 
 dependencies {

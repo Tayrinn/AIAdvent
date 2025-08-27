@@ -15,6 +15,11 @@ import java.time.Duration
 import java.net.URL
 import java.net.HttpURLConnection
 
+/**
+ * Исключение, которое бросается, когда модель не смогла справиться с задачей
+ */
+class AIModelFailureException(message: String) : Exception(message)
+
 class OpenAIApiImplInternal : OpenAIApi {
     
     private val httpClient = HttpClient.newBuilder()
@@ -132,6 +137,15 @@ class OpenAIApiImplInternal : OpenAIApi {
                 println("   Response Body: $responseBody")
                 val result = json.decodeFromString<OpenAIResponse>(responseBody)
                 println("✅ Успешный ответ получен")
+
+                // Проверяем, что content не пустой
+                val content = result.choices.firstOrNull()?.message?.content
+                println("🔍 Проверяем content в chatCompletion: length=${content?.length ?: 0}, isNullOrBlank=${content.isNullOrBlank()}")
+                if (content.isNullOrBlank()) {
+                    println("❌ Обнаружен пустой content в ответе OpenAI API!")
+                    throw AIModelFailureException("Модель AI вернула пустой ответ. Возможно, запрос слишком сложный или модель не смогла справиться с задачей.")
+                }
+
                 result
             } else {
                 val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Unknown error"
@@ -252,10 +266,16 @@ class OpenAIApiImplInternal : OpenAIApi {
             println("   Default max tokens: $maxTokens")
             
             val response = chatCompletion(request)
-            
-            val assistantResponse = response.choices.firstOrNull()?.message?.content 
-                ?: "Извините, не удалось получить ответ от ChatGPT"
-            
+
+            val assistantResponse = response.choices.firstOrNull()?.message?.content
+
+            // Проверяем, что ответ не пустой
+            println("🔍 Проверяем ответ от AI: length=${assistantResponse?.length ?: 0}, isNullOrBlank=${assistantResponse.isNullOrBlank()}")
+            if (assistantResponse.isNullOrBlank()) {
+                println("❌ Обнаружен пустой ответ от AI модели!")
+                throw AIModelFailureException("Модель AI не смогла справиться с задачей и вернула пустой ответ. Возможно, запрос слишком сложный или модель перегружена.")
+            }
+
             // Возвращаем только один ответ от ChatGPT
             Pair(assistantResponse, "")
             

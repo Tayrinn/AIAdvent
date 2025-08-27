@@ -14,33 +14,77 @@ class TestExecutionService {
     /**
      * Выполняет тесты для Kotlin файла
      */
-    suspend fun executeTests(testFilePath: String, projectDir: String): String {
+    suspend fun executeKotlinTests(testFilePath: String, projectDir: String): String {
         return try {
-            println("🧪 Запускаю тесты для файла: $testFilePath")
+            // Создаем временный build.gradle.kts для тестов
+            val buildGradleContent = createTestBuildGradle()
+            val buildGradlePath = "$projectDir/build.gradle.kts"
+            Files.write(Paths.get(buildGradlePath), buildGradleContent.toByteArray())
             
-            // Используем основной проект вместо создания временного
-            val projectRoot = projectDir
-            println("🧪 Запускаю тесты в директории: $projectRoot")
+            // Создаем временный settings.gradle.kts
+            val settingsGradleContent = createTestSettingsGradle()
+            val settingsGradlePath = "$projectDir/settings.gradle.kts"
+            Files.write(Paths.get(settingsGradlePath), settingsGradleContent.toByteArray())
             
             // Выполняем тесты через Gradle
-            val result = executeGradleTest(projectRoot, testFilePath)
-            println("✅ Тесты выполнены")
-            result
+            val result = executeGradleTest(projectDir)
             
+            // Очищаем временные файлы
+            cleanupTempFiles(projectDir)
+            
+            result
         } catch (e: Exception) {
-            "❌ Ошибка выполнения тестов: ${e.message}"
+            "Ошибка выполнения тестов: ${e.message}"
         }
     }
     
-    // Убрали создание временных файлов - используем основной проект
+    /**
+     * Создает временный build.gradle.kts для тестов
+     */
+    private fun createTestBuildGradle(): String {
+        return """
+plugins {
+    kotlin("jvm") version "1.9.10"
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(kotlin("stdlib"))
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.10")
+}
+
+tasks.test {
+    useJUnit()
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = true
+    }
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+        """.trimIndent()
+    }
+    
+    /**
+     * Создает временный settings.gradle.kts
+     */
+    private fun createTestSettingsGradle(): String {
+        return """
+rootProject.name = "temp-test-project"
+        """.trimIndent()
+    }
     
     /**
      * Выполняет Gradle тесты
      */
-    private fun executeGradleTest(projectDir: String, testFilePath: String): String {
+    private fun executeGradleTest(projectDir: String): String {
         return try {
-            println("🧪 Запускаю тесты в директории: $projectDir")
-            
             // Проверяем наличие gradlew в проекте
             val gradlewFile = File(projectDir, "gradlew")
             val gradlewBatFile = File(projectDir, "gradlew.bat")
@@ -53,39 +97,35 @@ class TestExecutionService {
                 }
             }
             
-            // Запускаем тесты напрямую без предварительной сборки
-            println("🧪 Запускаю тесты в основном проекте...")
-            
-            // Теперь запускаем тесты для конкретного файла
-            println("🧪 Запускаю команду: $gradleCommand :shared:test --tests *SimpleCalculatorTest* --no-daemon --info")
-            val testProcess = ProcessBuilder()
+            val processBuilder = ProcessBuilder()
                 .directory(File(projectDir))
-                .command(gradleCommand, ":shared:test", "--tests", "*SimpleCalculatorTest*", "--no-daemon", "--info")
-                .start()
+                .command(gradleCommand, "test", "--info")
             
-            val testOutput = testProcess.inputStream.bufferedReader().readText()
-            val testErrorOutput = testProcess.errorStream.bufferedReader().readText()
-            val testExitCode = testProcess.waitFor()
+            val process = processBuilder.start()
+            val output = process.inputStream.bufferedReader().readText()
+            val errorOutput = process.errorStream.bufferedReader().readText()
+            
+            val exitCode = process.waitFor()
             
             buildString {
                 appendLine("=== РЕЗУЛЬТАТ ВЫПОЛНЕНИЯ ТЕСТОВ ===")
-                appendLine("Код завершения: $testExitCode")
-                appendLine("Команда: $gradleCommand :shared:test --tests *SimpleCalculatorTest* --info")
+                appendLine("Код завершения: $exitCode")
+                appendLine("Команда: $gradleCommand test --info")
                 appendLine()
                 
-                if (testOutput.isNotEmpty()) {
+                if (output.isNotEmpty()) {
                     appendLine("=== СТАНДАРТНЫЙ ВЫВОД ===")
-                    appendLine(testOutput)
+                    appendLine(output)
                     appendLine()
                 }
                 
-                if (testErrorOutput.isNotEmpty()) {
+                if (errorOutput.isNotEmpty()) {
                     appendLine("=== ВЫВОД ОШИБОК ===")
-                    appendLine(testErrorOutput)
+                    appendLine(errorOutput)
                     appendLine()
                 }
                 
-                if (testExitCode == 0) {
+                if (exitCode == 0) {
                     appendLine("✅ Тесты выполнены успешно!")
                 } else {
                     appendLine("❌ Тесты завершились с ошибками")
@@ -116,28 +156,30 @@ class TestExecutionService {
     }
     
     /**
-     * Ищет корень проекта с gradlew
+     * Выполняет тесты для других языков программирования
      */
-    private fun findProjectRoot(startDir: String): String? {
-        var currentDir = File(startDir)
-        val maxDepth = 5
-        
-        repeat(maxDepth) {
-            if (currentDir.exists()) {
-                val gradlewFile = File(currentDir, "gradlew")
-                val gradlewBatFile = File(currentDir, "gradlew.bat")
-                
-                if (gradlewFile.exists() || gradlewBatFile.exists()) {
-                    return currentDir.absolutePath
-                }
-            }
-            
-            val parentDir = currentDir.parentFile
-            if (parentDir == null || !parentDir.exists()) {
-                return null
-            }
-            currentDir = parentDir
+    suspend fun executeTests(testFilePath: String, projectDir: String): String {
+        val extension = testFilePath.substringAfterLast(".", "").lowercase()
+                return when (extension) {
+            "kt" -> executeKotlinTests(testFilePath, projectDir)
+            "java" -> executeJavaTests(testFilePath, projectDir)
+            "py" -> executePythonTests(testFilePath, projectDir)
+            else -> "Неподдерживаемый язык программирования: $extension"
         }
-        return null
+    }
+    
+    /**
+     * Выполняет Java тесты
+     */
+    private suspend fun executeJavaTests(testFilePath: String, projectDir: String): String {
+        return "Выполнение Java тестов пока не реализовано"
+    }
+    
+    /**
+     * Выполняет Python тесты
+     */
+    private suspend fun executePythonTests(testFilePath: String, projectDir: String): String {
+        return "Выполнение Python тестов пока не реализовано"
     }
 }
+
