@@ -1,10 +1,11 @@
+```kotlin
 package com.example
 
 class SimpleCalculator {
 
     fun divide(a: Double, b: Double?): Double {
-        requireNotNull(b) { "Parameter 'b' must not be null" }
-        return a / b
+        val denom = b ?: throw IllegalArgumentException("b must not be null")
+        return a / denom
     }
 
     fun add(a: Int, b: Int): Int {
@@ -28,3 +29,4 @@ class SimpleCalculator {
         return result
     }
 }
+```

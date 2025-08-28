@@ -25,13 +25,27 @@ tasks.register<JavaExec>("runTestParser") {
     mainClass.set("com.tayrinn.aiadvent.service.TestGenerationService")
 }
 
+// Задача для запуска веб-сервера
+tasks.register<JavaExec>("runWebServer") {
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.tayrinn.aiadvent.server.AIAnalysisServerKt")
+}
+
 dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    
+
     // Kotlinx Serialization for JSON parsing
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-    
+
+    // Ktor server dependencies
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.call.logging)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")

@@ -49,7 +49,7 @@ class TestWorkflowServiceTest {
         whenever(mockFileService.readFile(testFilePath)).thenReturn(testSourceCode)
         whenever(mockFileService.getFileName(testFilePath)).thenReturn(testFileName)
         whenever(mockBugFixService.analyzeAndFixBugs(testSourceCode)).thenReturn(mockBugAnalysis)
-        whenever(mockTestGenerationService.generateTests(testSourceCode, testFileName)).thenReturn(generatedTests)
+        whenever(mockTestGenerationService.generateTestsManually(testSourceCode, testFileName)).thenReturn(generatedTests)
         whenever(mockTestExecutionService.executeTests(any(), any())).thenReturn(testResult)
         whenever(mockFileService.writeFile(any(), any())).thenReturn(true)
         
@@ -73,7 +73,7 @@ class TestWorkflowServiceTest {
         verify(mockFileService).readFile(testFilePath)
         verify(mockFileService).getFileName(testFilePath)
         verify(mockBugFixService).analyzeAndFixBugs(testSourceCode)
-        verify(mockTestGenerationService).generateTests(testSourceCode, testFileName)
+        verify(mockTestGenerationService).generateTestsManually(testSourceCode, testFileName)
         verify(mockFileService).writeFile(eq("/path/to/TestFile_Test.kt"), eq(generatedTests))
         verify(mockTestExecutionService).executeTests(eq("/path/to/TestFile_Test.kt"), eq("/path/to"))
     }

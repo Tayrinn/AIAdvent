@@ -1,0 +1,15 @@
+# Docker для сервиса-монитора доступности
+FROM alpine:latest
+
+# Устанавливаем curl для HTTP запросов
+RUN apk add --no-cache curl
+
+# Создаем рабочую директорию
+WORKDIR /app
+
+# Копируем скрипт мониторинга
+COPY monitor_service.sh /app/monitor_service.sh
+RUN chmod +x /app/monitor_service.sh
+
+# Запускаем скрипт мониторинга
+CMD ["/app/monitor_service.sh"]

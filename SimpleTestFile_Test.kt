@@ -1,10 +1,7 @@
 package com.example
 
 import org.junit.Test
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
+import org.junit.Assert.*
 
 class SimpleTestFileTest {
 
@@ -14,7 +11,7 @@ fun testDivide() {
 
     // Тест с валидными значениями
     val result = calculator.divide(10.0, 2.0)
-    assertEquals(5.0, result, 0.001)
+    assertEquals(5.0, result, 0.0)
 }
 
 @Test
@@ -22,19 +19,14 @@ fun testDivideWithZero() {
     val calculator = SimpleCalculator()
 
     val result = calculator.divide(10.0, 0.0)
-    assertEquals(Double.POSITIVE_INFINITY, result, 0.001)
+    assertEquals(Double.POSITIVE_INFINITY, result, 0.0)
 }
 
-@Test
+@Test(expected = NullPointerException::class)
 fun testDivideWithNull() {
     val calculator = SimpleCalculator()
 
-    try {
-        calculator.divide(10.0, null)
-        fail("Expected NullPointerException")
-    } catch (e: NullPointerException) {
-        // Ожидаемое исключение
-    }
+    calculator.divide(10.0, null)
 }
 
 @Test
