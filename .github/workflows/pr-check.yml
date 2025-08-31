@@ -40,7 +40,7 @@ jobs:
           GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
 
       - name: Validate PR title
-        uses: amannn/action-semantic-pull-request@v5
+        uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
