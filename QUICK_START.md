@@ -181,11 +181,18 @@ grep "🎨" server.log
 ### Запуск сервиса мониторинга
 
 ```bash
-# Запуск в Docker (рекомендуется)
-docker-compose -f docker-compose.monitor.yml up -d
+# Управление монитором (рекомендуется)
+./start_monitor.sh start   # запустить
+./start_monitor.sh stop    # остановить
+./start_monitor.sh status  # проверить статус
+./start_monitor.sh logs    # посмотреть логи
+./start_monitor.sh restart # перезапустить
 
 # Или запуск напрямую
 ./monitor_service.sh
+
+# Или в Docker (требует дополнительной настройки)
+docker-compose -f docker-compose.monitor.yml up -d
 ```
 
 ### Что проверяет монитор:

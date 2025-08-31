@@ -86,29 +86,19 @@ actual class OpenAIApiImpl : OpenAIApi {
     }
     
     override suspend fun sendMessage(
-        message: String, 
-        conversationHistory: List<ChatMessage>
+        message: String
     ): Pair<String, String> = withContext(Dispatchers.IO) {
         try {
-            // Создаем контекст из истории разговора
+            // Создаем контекст без истории разговора
             val messages = mutableListOf<OpenAIMessage>()
-            
+
             // Добавляем системное сообщение
             messages.add(OpenAIMessage(
                 role = "system",
                 content = "Ты - полезный AI помощник. Отвечай на русском языке, будь дружелюбным и информативным."
             ))
-            
-            // Добавляем последние сообщения из истории для контекста (последние 10)
-            conversationHistory.takeLast(10).forEach { chatMessage ->
-                if (chatMessage.isUser) {
-                    messages.add(OpenAIMessage(role = "user", content = chatMessage.content))
-                } else if (!chatMessage.isError && !chatMessage.isTestReport) {
-                    messages.add(OpenAIMessage(role = "assistant", content = chatMessage.content))
-                }
-            }
-            
-            // Добавляем текущее сообщение пользователя
+
+            // Добавляем только текущее сообщение пользователя
             messages.add(OpenAIMessage(role = "user", content = message))
             
             // Отправляем запрос к OpenAI

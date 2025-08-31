@@ -23,13 +23,13 @@ class OpenAIChatRepository(
     /**
      * Send message to OpenAI ChatGPT and get response
      */
-    suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>): Pair<String, String> {
+    suspend fun sendMessage(content: String): Pair<String, String> {
         return try {
-            openAIApi.sendMessage(content, conversationHistory)
+            openAIApi.sendMessage(content)
         } catch (e: Exception) {
             println("Error in OpenAIChatRepository.sendMessage: ${e.message}")
             Pair(
-                "Ошибка при отправке сообщения к ChatGPT: ${e.message}",
+                "Ошибка при отправке сообщения к Hugging Face: ${e.message}",
                 "Проверьте подключение к интернету"
             )
         }

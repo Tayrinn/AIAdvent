@@ -8,7 +8,7 @@ services:
     container_name: ai-advent-monitor
     environment:
       - SERVICE_URL=http://host.docker.internal:8080
-      - NGROK_API_URL=http://host.docker.internal:4040
+      - NGROK_API_URL=http://192.168.1.6:4040
       - INTERVAL=180  # 3 минуты в секундах
       - EXTERNAL_CHECK_INTERVAL=300  # 5 минут для внешней проверки
     network_mode: host  # Для доступа к host.docker.internal
@@ -28,7 +28,7 @@ services:
 #     container_name: ai-advent-monitor
 #     environment:
 #       - SERVICE_URL=http://host.docker.internal:8080
-#       - NGROK_API_URL=http://host.docker.internal:4040
+#       - NGROK_API_URL=http://192.168.1.6:4040
 #       - INTERVAL=180
 #       - EXTERNAL_CHECK_INTERVAL=300
 #     extra_hosts:

@@ -34,6 +34,7 @@ fun App() {
     val inputText = remember { mutableStateOf("") }
     val isLoading = remember { mutableStateOf(false) }
     val temperature = remember { mutableStateOf(0.7f) }
+    val modelName = remember { mutableStateOf("deepseek-ai/DeepSeek-V3-0324") }
     val scope = rememberCoroutineScope()
     val testRunner = remember { TestRunner() }
     
@@ -48,14 +49,13 @@ fun App() {
     val testExecutionService = remember { TestExecutionService() }
     val testWorkflowService = remember { TestWorkflowService(fileService, bugFixService, testGenerationService, testExecutionService) }
 
-    // Добавляем кнопку для самотестирования
-    var showSelfTest by remember { mutableStateOf(false) }
+
     
     // Добавляем тестовое сообщение при запуске
     LaunchedEffect(Unit) {
         messages.add(
             ChatMessage(
-                content = "🚀 **AIAdvent Desktop with ChatGPT:** Welcome! Now powered by OpenAI ChatGPT API!",
+                content = "🚀 **AIAdvent Desktop with Hugging Face:** Welcome! Now powered by Hugging Face API!",
                 isUser = false,
                 isAgent1 = true
             )
@@ -77,7 +77,7 @@ fun App() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "AIAdvent Desktop + ChatGPT",
+                    text = "AIAdvent Desktop + Hugging Face",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -139,71 +139,7 @@ fun App() {
                         Text("📁 Открыть файл")
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
 
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                isLoading.value = true
-                                try {
-                                    val selfTestResults = testGenerationService.runSelfTests()
-                                    messages.add(
-                                        ChatMessage(
-                                            content = "🧪 **РЕЗУЛЬТАТЫ САМОТЕСТИРОВАНИЯ:**\n\n$selfTestResults",
-                                            isUser = false,
-                                            isAgent1 = true
-                                        )
-                                    )
-                                } catch (e: Exception) {
-                                    messages.add(
-                                        ChatMessage(
-                                            content = "❌ Ошибка самотестирования: ${e.message}",
-                                            isUser = false,
-                                            isError = true
-                                        )
-                                    )
-                                } finally {
-                                    isLoading.value = false
-                                }
-                            }
-                        },
-                        enabled = !isLoading.value
-                    ) {
-                        Text("🧪 Самотест")
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                isLoading.value = true
-                                try {
-                                    val debugResults = testGenerationService.debugFileParsing("SimpleTestFile.kt")
-                                    messages.add(
-                                        ChatMessage(
-                                            content = debugResults,
-                                            isUser = false,
-                                            isAgent1 = true
-                                        )
-                                    )
-                                } catch (e: Exception) {
-                                    messages.add(
-                                        ChatMessage(
-                                            content = "❌ Ошибка отладки файла: ${e.message}",
-                                            isUser = false,
-                                            isError = true
-                                        )
-                                    )
-                                } finally {
-                                    isLoading.value = false
-                                }
-                            }
-                        },
-                        enabled = !isLoading.value
-                    ) {
-                        Text("🔍 Отладка")
-                    }
                 }
             }
             
@@ -264,7 +200,40 @@ fun App() {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
+            // Поле ввода модели
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🤖 Модель AI:",
+                    modifier = Modifier.width(120.dp),
+                    fontSize = 14.sp
+                )
+
+                OutlinedTextField(
+                    value = modelName.value,
+                    onValueChange = { modelName.value = it },
+                    label = { Text("Название модели") },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading.value,
+                    placeholder = { Text("deepseek-ai/DeepSeek-V3-0324") }
+                )
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Кнопка сброса модели
+                OutlinedButton(
+                    onClick = { modelName.value = "deepseek-ai/DeepSeek-V3-0324" },
+                    modifier = Modifier.width(100.dp)
+                ) {
+                    Text("Сброс")
+                }
+            }
+
             // Список сообщений
             LazyColumn(
                 modifier = Modifier
@@ -328,31 +297,32 @@ fun App() {
                                         }
                                     }
                                 }
-                                text.lowercase().contains("generate") || 
-                                text.lowercase().contains("create") || 
-                                text.lowercase().contains("make") || 
-                                text.lowercase().contains("draw") || 
-                                text.lowercase().contains("picture") || 
-                                text.lowercase().contains("image") -> {
-                                    // Имитируем генерацию изображения
-                                    messages.add(
-                                        ChatMessage(
-                                            content = "🎨 **Image Generation:** Sorry, image generation is not available in desktop version yet.",
-                                            isUser = false,
-                                            isImageGeneration = true
-                                        )
-                                    )
-                                }
+                                // Генерация изображений отключена
+                                // text.lowercase().contains("generate") ||
+                                // text.lowercase().contains("create") ||
+                                // text.lowercase().contains("make") ||
+                                // text.lowercase().contains("draw") ||
+                                // text.lowercase().contains("picture") ||
+                                // text.lowercase().contains("image") -> {
+                                //     // Имитируем генерацию изображения
+                                //     messages.add(
+                                //         ChatMessage(
+                                //             content = "🎨 **Image Generation:** Sorry, image generation is not available in desktop version yet.",
+                                //             isUser = false,
+                                //             isImageGeneration = true
+                                //         )
+                                //     )
+                                // }
                                 else -> {
                                     // Отправляем сообщение к ChatGPT
                                     scope.launch {
                                         isLoading.value = true
                                         try {
-                                            val (agent1Response, _) = chatRepository.sendMessage(text, messages.toList())
+                                            val (agent1Response, _) = chatRepository.sendMessage(text, modelName = modelName.value)
                                             
                                             messages.add(
                                                 ChatMessage(
-                                                    content = "🤖 **ChatGPT (🌡️ ${String.format("%.1f", temperature.value)}):** $agent1Response",
+                                                    content = "🤖 **${modelName.value} (🌡️ ${String.format("%.1f", temperature.value)}):** $agent1Response",
                                                     isUser = false,
                                                     isAgent1 = true
                                                 )

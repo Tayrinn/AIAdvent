@@ -26,7 +26,7 @@ class BugFixServiceTest {
         """.trimIndent()
         
         // Mock repository response
-        whenever(mockRepository.sendMessage(any(), any(), any())).thenReturn(
+        whenever(mockRepository.sendMessage(any(), any(), anyOrNull())).thenReturn(
             Pair("""
                 {
                     "bugs": [
@@ -58,8 +58,8 @@ class BugFixServiceTest {
         // Verify that sendMessage was called with maxTokens parameter
         verify(mockRepository).sendMessage(
             any(),
-            any(),
-            eq(4000)  // maxTokens parameter
+            eq(4000),  // maxTokens parameter
+            anyOrNull()  // modelName parameter
         )
     }
 

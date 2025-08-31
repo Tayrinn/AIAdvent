@@ -99,12 +99,20 @@ class ConfigService {
      * Загружает конфигурацию по умолчанию
      */
     private fun loadDefaultConfig() {
+        // Hugging Face API configuration
+        properties.setProperty("huggingface.api.key", "")
+        properties.setProperty("huggingface.api.model", "deepseek-ai/DeepSeek-V3-0324")
+        properties.setProperty("huggingface.api.max_tokens", "2000")
+        properties.setProperty("huggingface.api.temperature", "0.7")
+
+        // Legacy OpenAI configuration
         properties.setProperty("openai.api.key", "")
         properties.setProperty("openai.api.model", "gpt-5")
         properties.setProperty("openai.api.max_tokens", "2000")
         properties.setProperty("openai.api.temperature", "0.7")
+
         println("📋 Загружена конфигурация по умолчанию")
-        println("⚠️ ВНИМАНИЕ: API ключ не загружен, будут использованы пустые значения!")
+        println("⚠️ ВНИМАНИЕ: API ключи не загружены, будут использованы пустые значения!")
     }
     
     /**

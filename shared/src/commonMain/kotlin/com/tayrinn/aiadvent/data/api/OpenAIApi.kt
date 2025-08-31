@@ -20,12 +20,10 @@ interface OpenAIApi {
     /**
      * Send a message and get response from ChatGPT
      * @param message User message content
-     * @param conversationHistory Previous messages for context
      * @return Pair of responses (agent1, agent2) for compatibility
      */
     suspend fun sendMessage(
-        message: String, 
-        conversationHistory: List<com.tayrinn.aiadvent.data.model.ChatMessage> = emptyList()
+        message: String
     ): Pair<String, String>
 }
 

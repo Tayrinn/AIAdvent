@@ -23,9 +23,9 @@ class OpenAIChatRepository(
     /**
      * Send message to OpenAI ChatGPT and get response
      */
-    suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>, maxTokensParam: Int? = null): Pair<String, String> {
+    suspend fun sendMessage(content: String, maxTokensParam: Int? = null, modelName: String? = null): Pair<String, String> {
         return try {
-            openAIApi.sendMessage(content, conversationHistory, maxTokensParam)
+            openAIApi.sendMessage(content, maxTokensParam, modelName)
         } catch (e: com.tayrinn.aiadvent.data.api.AIModelFailureException) {
             // Пробрасываем исключение дальше - модель не справилась с задачей
             println("🤖 AI Model Failure in OpenAIChatRepository: ${e.message}")
@@ -33,7 +33,7 @@ class OpenAIChatRepository(
         } catch (e: Exception) {
             println("Error in OpenAIChatRepository.sendMessage: ${e.message}")
             Pair(
-                "Ошибка при отправке сообщения к ChatGPT: ${e.message}",
+                "Ошибка при отправке сообщения к Hugging Face: ${e.message}",
                 "Проверьте подключение к интернету"
             )
         }
@@ -90,7 +90,7 @@ class OpenAIChatRepository(
     /**
      * Generate image (placeholder - not implemented for OpenAI text model)
      */
-    suspend fun generateImage(prompt: String): Result<String> {
-        return Result.failure(Exception("Генерация изображений не поддерживается в ChatGPT интеграции"))
+    suspend fun generateImage(_prompt: String): Result<String> {
+        return Result.failure(Exception("Генерация изображений не поддерживается в Hugging Face интеграции"))
     }
 }

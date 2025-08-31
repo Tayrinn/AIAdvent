@@ -21,97 +21,88 @@ import java.net.HttpURLConnection
 class AIModelFailureException(message: String) : Exception(message)
 
 class OpenAIApiImplInternal : OpenAIApi {
-    
-    private val httpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(30))
+
+    private val httpClient = java.net.http.HttpClient.newBuilder()
+        .connectTimeout(java.time.Duration.ofSeconds(30))
         .build()
-    private val json = Json { 
+    private val json = Json {
         ignoreUnknownKeys = true
         prettyPrint = true
         encodeDefaults = true  // Важно! Включаем сериализацию значений по умолчанию
     }
-    
-    // Конфигурация OpenAI API
+
+    // Конфигурация Hugging Face API
     private val configService = ConfigService()
     private var apiKey: String = ""
-    private var defaultModel: String = "gpt-5"
+    private var defaultModel: String = "deepseek-ai/DeepSeek-V3-0324"
     private var maxTokens: Int = 2000
-    private var isGpt5: Boolean = true
+    private var temperature: Double = 0.7
 
-    
+
     // Проверяем формат API ключа
     init {
         configService.loadConfig()
-        apiKey = configService.getProperty("openai.api.key")
-        defaultModel = configService.getProperty("openai.api.model", "gpt-5")
-        maxTokens = configService.getIntProperty("openai.api.max_tokens", 2000)
-        isGpt5 = defaultModel.startsWith("gpt-5")
+        apiKey = configService.getProperty("huggingface.api.key")
+        defaultModel = configService.getProperty("huggingface.api.model", "deepseek-ai/DeepSeek-V3-0324")
+        maxTokens = configService.getIntProperty("huggingface.api.max_tokens", 2000)
+        temperature = configService.getDoubleProperty("huggingface.api.temperature", 0.7)
 
-        
-        println("🔑 OpenAI API Key format check:")
+
+        println("🔑 Hugging Face API Key format check:")
         println("   Length: ${apiKey.length}")
         println("   Starts with: ${apiKey.take(7)}")
-        println("   Contains 'sk-proj': ${apiKey.contains("sk-proj")}")
-        
+        println("   Contains 'hf_': ${apiKey.contains("hf_")}")
+
         // Тестируем сериализацию
         println("🧪 Testing serialization:")
-        val testRequest = OpenAIRequest(
+        val testRequest = HuggingFaceRequest(
             model = defaultModel,
-            messages = listOf(OpenAIMessage("user", "test")),
-            maxCompletionTokens = maxTokens
+            messages = listOf(HuggingFaceMessage("user", "test"))
         )
         val testJson = json.encodeToString(testRequest)
         println("   Test JSON: $testJson")
     }
-    private val baseUrl = "https://api.openai.com/v1"
+    private val baseUrl = "https://router.huggingface.co"
     
         override suspend fun chatCompletion(request: OpenAIRequest): OpenAIResponse = withContext(Dispatchers.IO) {
         try {
-            // Проверяем доступность API
-            println("🔍 Проверяем доступность OpenAI API...")
-            try {
-                val testRequest = HttpRequest.newBuilder()
-                    .uri(URI.create("$baseUrl/models"))
-                    .header("Authorization", "Bearer $apiKey")
-                    .GET()
-                    .timeout(Duration.ofSeconds(10))
-                    .build()
-                
-                val testResponse = httpClient.send(testRequest, HttpResponse.BodyHandlers.ofString())
-                if (testResponse.statusCode() == 200) {
-                    println("✅ OpenAI API доступен")
-                } else {
-                    println("⚠️ OpenAI API отвечает с кодом: ${testResponse.statusCode()}")
-                }
-            } catch (e: Exception) {
-                println("⚠️ Не удалось проверить доступность API: ${e.message}")
+            // Конвертируем OpenAI запрос в Hugging Face формат
+            val hfMessages = request.messages.map { message ->
+                HuggingFaceMessage(
+                    role = message.role,
+                    content = message.content
+                )
             }
-            
+
+            val hfRequest = HuggingFaceRequest(
+                model = request.model.ifEmpty { defaultModel },
+                messages = hfMessages
+            )
+
             // Детальное логирование объекта запроса
-            println("🔍 OpenAI Request Object:")
-            println("   Model: ${request.model}")
-            println("   Messages count: ${request.messages.size}")
-            println("   Max completion tokens: ${request.maxCompletionTokens}")
-            
-            val requestBody = json.encodeToString(request)
-            
+            println("🔍 Hugging Face Request Object:")
+            println("   Model: ${hfRequest.model}")
+            println("   Messages count: ${hfRequest.messages.size}")
+
+            val requestBody = json.encodeToString(hfRequest)
+
             // Проверяем размер запроса
             val requestSize = requestBody.length
             println("📏 Размер запроса: $requestSize символов")
             if (requestSize > 10000) {
                 println("⚠️ Запрос очень большой (>10KB), это может вызывать проблемы")
             }
-            
+
             // Детальное логирование для диагностики
-            println("🔍 OpenAI API Request:")
-            println("   URL: $baseUrl/chat/completions")
+            println("🔍 Hugging Face API Request:")
+            println("   URL: $baseUrl/v1/chat/completions")
             println("   Headers: Content-Type=application/json, Authorization=Bearer ${apiKey.take(10)}...")
             println("   Request Body: $requestBody")
-            
-            // Пробуем через HttpURLConnection вместо HttpClient
+
+            // Используем HttpURLConnection
             println("🔄 Используем HttpURLConnection...")
-            
-            val url = URL("$baseUrl/chat/completions")
+
+            val url = URL("$baseUrl/v1/chat/completions")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
@@ -121,36 +112,68 @@ class OpenAIApiImplInternal : OpenAIApi {
             connection.connectTimeout = 30000
             connection.readTimeout = 120000
             connection.doOutput = true
-            
+
             // Отправляем данные
             connection.outputStream.use { os ->
                 os.write(requestBody.toByteArray())
                 os.flush()
             }
-            
+
             val responseCode = connection.responseCode
-            println("🔍 OpenAI API Response:")
+            println("🔍 Hugging Face API Response:")
             println("   Status Code: $responseCode")
-            
+
             if (responseCode == 200) {
                 val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
                 println("   Response Body: $responseBody")
-                val result = json.decodeFromString<OpenAIResponse>(responseBody)
-                println("✅ Успешный ответ получен")
 
-                // Проверяем, что content не пустой
-                val content = result.choices.firstOrNull()?.message?.content
-                println("🔍 Проверяем content в chatCompletion: length=${content?.length ?: 0}, isNullOrBlank=${content.isNullOrBlank()}")
-                if (content.isNullOrBlank()) {
-                    println("❌ Обнаружен пустой content в ответе OpenAI API!")
-                    throw AIModelFailureException("Модель AI вернула пустой ответ. Возможно, запрос слишком сложный или модель не смогла справиться с задачей.")
+                try {
+                    val hfResult = json.decodeFromString<HuggingFaceResponse>(responseBody)
+
+                    // Конвертируем Hugging Face ответ в OpenAI формат
+                    val result = OpenAIResponse(
+                        id = hfResult.id,
+                        `object` = hfResult.`object`,
+                        created = hfResult.created,
+                        model = hfResult.model,
+                        choices = hfResult.choices.map { choice ->
+                            OpenAIChoice(
+                                index = choice.index,
+                                message = OpenAIMessage(
+                                    role = choice.message.role,
+                                    content = choice.message.content
+                                ),
+                                finishReason = choice.finishReason
+                            )
+                        },
+                        usage = hfResult.usage?.let { usage ->
+                            OpenAIUsage(
+                                promptTokens = usage.promptTokens,
+                                completionTokens = usage.completionTokens,
+                                totalTokens = usage.totalTokens
+                            )
+                        }
+                    )
+
+                    println("✅ Успешный ответ получен")
+
+                    // Проверяем, что content не пустой
+                    val content = result.choices.firstOrNull()?.message?.content
+                    println("🔍 Проверяем content в chatCompletion: length=${content?.length ?: 0}, isNullOrBlank=${content.isNullOrBlank()}")
+                    if (content.isNullOrBlank()) {
+                        println("❌ Обнаружен пустой content в ответе Hugging Face API!")
+                        throw AIModelFailureException("Модель AI вернула пустой ответ. Возможно, запрос слишком сложный или модель не смогла справиться с задачей.")
+                    }
+
+                    result
+                } catch (e: Exception) {
+                    println("❌ Ошибка парсинга ответа Hugging Face API: ${e.message}")
+                    throw AIModelFailureException("Не удалось обработать ответ от Hugging Face API: ${e.message}")
                 }
-
-                result
             } else {
                 val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "Unknown error"
-                println("❌ OpenAI API Error ($responseCode): $errorBody")
-                
+                println("❌ Hugging Face API Error ($responseCode): $errorBody")
+
                 OpenAIResponse(
                     id = "error",
                     `object` = "chat.completion",
@@ -161,7 +184,7 @@ class OpenAIApiImplInternal : OpenAIApi {
                             index = 0,
                             message = OpenAIMessage(
                                 role = "assistant",
-                                content = "Извините, произошла ошибка при обращении к ChatGPT API. Код ошибки: $responseCode"
+                                content = "Извините, произошла ошибка при обращении к Hugging Face API. Код ошибки: $responseCode"
                             ),
                             finishReason = "error"
                         )
@@ -169,16 +192,16 @@ class OpenAIApiImplInternal : OpenAIApi {
                 )
             }
         } catch (e: Exception) {
-            println("❌ Exception calling OpenAI API: ${e.message}")
+            println("❌ Exception calling Hugging Face API: ${e.message}")
             println("❌ Exception type: ${e.javaClass.simpleName}")
             e.printStackTrace()
-            
+
             // Детальная диагностика сетевых проблем
             when (e) {
                 is java.net.ConnectException -> {
                     println("🌐 Проблема с подключением к серверу")
                     println("   Проверьте интернет-соединение")
-                    println("   Возможно, заблокирован доступ к api.openai.com")
+                    println("   Возможно, заблокирован доступ к router.huggingface.co")
                 }
                 is java.net.SocketTimeoutException -> {
                     println("⏰ Таймаут соединения")
@@ -191,7 +214,7 @@ class OpenAIApiImplInternal : OpenAIApi {
                         println("   Возможные причины:")
                         println("   - Нестабильное интернет-соединение")
                         println("   - Firewall/Proxy блокирует соединение")
-                        println("   - Сервер OpenAI перегружен")
+                        println("   - Сервер Hugging Face перегружен")
                         println("   - Проблемы с API ключом")
                     } else {
                         println("📡 Ошибка ввода-вывода: ${e.message}")
@@ -201,7 +224,7 @@ class OpenAIApiImplInternal : OpenAIApi {
                     println("❓ Неизвестная ошибка: ${e.javaClass.simpleName}")
                 }
             }
-            
+
             // Return error response
             OpenAIResponse(
                 id = "error",
@@ -213,7 +236,7 @@ class OpenAIApiImplInternal : OpenAIApi {
                         index = 0,
                         message = OpenAIMessage(
                             role = "assistant",
-                            content = "Произошла ошибка при подключении к ChatGPT: ${e.message}"
+                            content = "Произошла ошибка при подключении к Hugging Face: ${e.message}"
                         ),
                         finishReason = "error"
                     )
@@ -222,48 +245,35 @@ class OpenAIApiImplInternal : OpenAIApi {
         }
     }
     
-    override suspend fun sendMessage(
-        message: String, 
-        conversationHistory: List<ChatMessage>,
-        maxTokensParam: Int?
+        override suspend fun sendMessage(
+        message: String,
+        maxTokensParam: Int?,
+        modelName: String?
     ): Pair<String, String> = withContext(Dispatchers.IO) {
         try {
-            // Создаем контекст из истории разговора
+            // Создаем контекст без истории разговора
             val messages = mutableListOf<OpenAIMessage>()
-            
+
             // Добавляем системное сообщение
             messages.add(OpenAIMessage(
                 role = "system",
                 content = "Ты - полезный AI помощник. Отвечай на русском языке, будь дружелюбным и информативным."
             ))
-            
-            // Добавляем последние сообщения из истории для контекста (последние 10)
-            conversationHistory.takeLast(10).forEach { chatMessage ->
-                if (chatMessage.isUser) {
-                    messages.add(OpenAIMessage(role = "user", content = chatMessage.content))
-                } else if (!chatMessage.isError && !chatMessage.isTestReport) {
-                    messages.add(OpenAIMessage(role = "assistant", content = chatMessage.content))
-                }
-            }
-            
-            // Добавляем текущее сообщение пользователя
+
+            // Добавляем только текущее сообщение пользователя
             messages.add(OpenAIMessage(role = "user", content = message))
             
-            // Отправляем запрос к OpenAI
+            // Отправляем запрос к Hugging Face
             val request = OpenAIRequest(
-                model = defaultModel,
+                model = modelName ?: defaultModel,
                 messages = messages,
                 maxCompletionTokens = maxTokensParam ?: maxTokens
             )
             
             // Дополнительное логирование запроса
-            println("🔍 OpenAI Request Details:")
+            println("🔍 Hugging Face Request Details:")
             println("   Model: ${request.model}")
             println("   Messages count: ${request.messages.size}")
-            println("   Max completion tokens: ${request.maxCompletionTokens}")
-            println("   Is GPT-5: $isGpt5")
-            println("   Max tokens param: $maxTokensParam")
-            println("   Default max tokens: $maxTokens")
             
             val response = chatCompletion(request)
 

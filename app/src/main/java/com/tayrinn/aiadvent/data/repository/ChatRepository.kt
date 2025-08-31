@@ -48,7 +48,7 @@ Rules:
 - Keep responses concise but insightful
 - Respond in English only"""
     
-    suspend fun sendMessage(content: String, conversationHistory: List<ChatMessage>): Pair<String, String> {
+    suspend fun sendMessage(content: String): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             try {
                 // Проверяем, является ли сообщение запросом на генерацию изображения
@@ -61,11 +61,6 @@ Rules:
                     appendLine(agent1SystemMessage)
                     appendLine()
                     appendLine("User question: $content")
-                    appendLine()
-                    appendLine("Previous conversation context:")
-                    conversationHistory.takeLast(10).forEach { message ->
-                        appendLine("${if (message.isUser) "User" else "AI"}: ${message.content}")
-                    }
                 }
 
                 val agent1Request = OllamaRequest(

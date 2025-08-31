@@ -64,7 +64,7 @@ class BugFixService(
         return try {
             // Используем прямую отправку в OpenAI API для анализа багов
             // Передаем maxTokens для корректной работы с GPT-5
-            val response = openAIRepository.sendMessage(prompt, emptyList(), 4000)
+            val response = openAIRepository.sendMessage(prompt, 4000)
             val bugs = parseAIResponse(response.first)
             
             // Выводим детали анализа сразу
@@ -196,7 +196,7 @@ class BugFixService(
         return try {
             println("🔄 Отправляем запрос на генерацию исправленного кода...")
             onMessage?.invoke("🤖 **ГЕНЕРИРУЮ ИСПРАВЛЕННЫЙ КОД...**")
-            val response = openAIRepository.sendMessage(prompt, emptyList(), 4000)
+            val response = openAIRepository.sendMessage(prompt, 4000)
             val fixedCode = response.first
 
             // Проверяем, что AI вернула непустой код
