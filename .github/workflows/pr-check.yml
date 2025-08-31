@@ -19,19 +19,25 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: 'zulu'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
       - name: Run linting
         run: ./gradlew lint
+        env:
+          GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
 
       - name: Run tests
         run: ./gradlew test
+        env:
+          GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
 
       - name: Build project
         run: ./gradlew build
+        env:
+          GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
 
       - name: Validate PR title
         uses: amannn/action-semantic-pull-request@v5
@@ -59,7 +65,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: 'zulu'
 
       - name: Run Detekt (Kotlin code quality)
         run: ./gradlew detekt

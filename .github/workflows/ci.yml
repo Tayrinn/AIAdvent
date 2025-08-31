@@ -18,12 +18,16 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: 'zulu'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          gradle-home-cache-includes: |
+            caches
+            notifications
+            jdks
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -40,9 +44,13 @@ jobs:
 
       - name: Run tests
         run: ./gradlew test --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
 
       - name: Build project
         run: ./gradlew build --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

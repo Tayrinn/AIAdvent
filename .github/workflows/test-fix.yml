@@ -1,0 +1,34 @@
+name: Test Java Fix
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-java-setup:
+    name: Test Java Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Verify Java version
+        run: java -version
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Test Gradle with Java toolchain
+        run: ./gradlew --version
+        env:
+          GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
+
+      - name: Test project build
+        run: ./gradlew build --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.java.installations.auto-download=true
