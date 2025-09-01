@@ -99,7 +99,7 @@ class ChatViewModel(
                     }
                     else -> {
                         // Обычный текстовый ответ без сложных таймаутов
-                        val (agent1Response, agent2Response) = repository.sendMessage(content, _messages.value)
+                        val (agent1Response, agent2Response) = repository.sendMessage(content, _messages.value, null)
                         
                         // Сохраняем ответ Агента 1
                         val agent1Message = ChatMessage(

@@ -20,6 +20,7 @@ import androidx.compose.ui.window.rememberWindowState
 import com.tayrinn.aiadvent.data.model.ChatMessage
 import com.tayrinn.aiadvent.data.api.createOpenAIApiImpl
 import com.tayrinn.aiadvent.data.repository.OpenAIChatRepository
+import com.tayrinn.aiadvent.data.local.ChatStorage
 import com.tayrinn.aiadvent.service.*
 import com.tayrinn.aiadvent.util.TestRunner
 import kotlinx.coroutines.launch
@@ -37,7 +38,10 @@ fun App() {
     val modelName = remember { mutableStateOf("deepseek-ai/DeepSeek-V3-0324") }
     val scope = rememberCoroutineScope()
     val testRunner = remember { TestRunner() }
-    
+
+    // Создаем хранилище для сообщений
+    val chatStorage = remember { ChatStorage() }
+
     // Создаем OpenAI API и Repository
     val openAIApi = remember { createOpenAIApiImpl() }
     val chatRepository = remember { OpenAIChatRepository(openAIApi) }
@@ -51,15 +55,33 @@ fun App() {
 
 
     
-    // Добавляем тестовое сообщение при запуске
+    // Загружаем сообщения из хранилища и добавляем приветственное сообщение
     LaunchedEffect(Unit) {
-        messages.add(
-            ChatMessage(
-                content = "🚀 **AIAdvent Desktop with Hugging Face:** Welcome! Now powered by Hugging Face API!",
-                isUser = false,
-                isAgent1 = true
+        try {
+            val savedMessages = chatStorage.loadMessages()
+            messages.addAll(savedMessages)
+
+            // Добавляем приветственное сообщение только если нет сохраненных сообщений
+            if (savedMessages.isEmpty()) {
+                messages.add(
+                    ChatMessage(
+                        content = "🚀 **AIAdvent Desktop with Hugging Face:** Welcome! Now powered by Hugging Face API!",
+                        isUser = false,
+                        isAgent1 = true
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            println("❌ Ошибка загрузки сообщений: ${e.message}")
+            // В случае ошибки показываем приветственное сообщение
+            messages.add(
+                ChatMessage(
+                    content = "🚀 **AIAdvent Desktop with Hugging Face:** Welcome! Now powered by Hugging Face API!",
+                    isUser = false,
+                    isAgent1 = true
+                )
             )
-        )
+        }
     }
     
     MaterialTheme {
@@ -274,7 +296,19 @@ fun App() {
                                 isUser = true
                             )
                             messages.add(userMessage)
-                            
+
+                            // Сохраняем сообщение пользователя в базу данных
+                            scope.launch {
+                                try {
+                                    println("💾 Сохраняем пользовательское сообщение...")
+                                    val savedMessage = chatStorage.saveMessage(userMessage)
+                                    println("✅ Пользовательское сообщение сохранено с ID: ${savedMessage.id}")
+                                } catch (e: Exception) {
+                                    println("❌ Ошибка сохранения пользовательского сообщения: ${e.message}")
+                                    e.printStackTrace()
+                                }
+                            }
+
                             // Очищаем поле ввода
                             inputText.value = ""
                             
@@ -318,23 +352,37 @@ fun App() {
                                     scope.launch {
                                         isLoading.value = true
                                         try {
-                                            val (agent1Response, _) = chatRepository.sendMessage(text, modelName = modelName.value)
-                                            
-                                            messages.add(
-                                                ChatMessage(
-                                                    content = "🤖 **${modelName.value} (🌡️ ${String.format("%.1f", temperature.value)}):** $agent1Response",
-                                                    isUser = false,
-                                                    isAgent1 = true
-                                                )
+                                            // Получаем последние 3 сообщения для контекста (исключая текущее)
+                                            val recentMessages = messages.takeLast(3).filter { it.content != text }
+                                            val (agent1Response, _) = chatRepository.sendMessage(text, recentMessages, modelName.value)
+
+                                            val aiMessage = ChatMessage(
+                                                content = "🤖 **${modelName.value} (🌡️ ${String.format("%.1f", temperature.value)}):** $agent1Response",
+                                                isUser = false,
+                                                isAgent1 = true
                                             )
+                                            messages.add(aiMessage)
+
+                                            // Сохраняем ответ AI в базу данных
+                                            try {
+                                                chatStorage.saveMessage(aiMessage)
+                                            } catch (e: Exception) {
+                                                println("❌ Ошибка сохранения ответа AI: ${e.message}")
+                                            }
                                         } catch (e: Exception) {
-                                            messages.add(
-                                                ChatMessage(
-                                                    content = "❌ **Error:** ${e.message}",
-                                                    isUser = false,
-                                                    isError = true
-                                                )
+                                            val errorMessage = ChatMessage(
+                                                content = "❌ **Error:** ${e.message}",
+                                                isUser = false,
+                                                isError = true
                                             )
+                                            messages.add(errorMessage)
+
+                                            // Сохраняем сообщение об ошибке в базу данных
+                                            try {
+                                                chatStorage.saveMessage(errorMessage)
+                                            } catch (e: Exception) {
+                                                println("❌ Ошибка сохранения сообщения об ошибке: ${e.message}")
+                                            }
                                         } finally {
                                             isLoading.value = false
                                         }

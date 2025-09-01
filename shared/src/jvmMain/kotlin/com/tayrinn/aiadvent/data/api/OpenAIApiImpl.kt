@@ -86,10 +86,12 @@ actual class OpenAIApiImpl : OpenAIApi {
     }
     
     override suspend fun sendMessage(
-        message: String
+        message: String,
+        recentMessages: List<ChatMessage>,
+        modelName: String?
     ): Pair<String, String> = withContext(Dispatchers.IO) {
         try {
-            // Создаем контекст без истории разговора
+            // Создаем контекст с использованием последних сообщений
             val messages = mutableListOf<OpenAIMessage>()
 
             // Добавляем системное сообщение
@@ -98,12 +100,26 @@ actual class OpenAIApiImpl : OpenAIApi {
                 content = "Ты - полезный AI помощник. Отвечай на русском языке, будь дружелюбным и информативным."
             ))
 
-            // Добавляем только текущее сообщение пользователя
+            // Добавляем последние сообщения для контекста (максимум 3)
+            val contextMessages = recentMessages.takeLast(3)
+            contextMessages.forEach { chatMessage ->
+                if (chatMessage.isUser) {
+                    messages.add(OpenAIMessage(role = "user", content = chatMessage.content))
+                } else if (!chatMessage.isError && !chatMessage.isTestReport) {
+                    // Извлекаем только текст ответа AI (убираем форматирование)
+                    val aiContent = chatMessage.content
+                        .replace(Regex("""🤖 \*\*.*?:\*\* """), "") // Убираем форматирование AI
+                        .replace(Regex("""🌡️ [\d.]+.*?:\*\* """), "") // Убираем форматирование температуры
+                    messages.add(OpenAIMessage(role = "assistant", content = aiContent))
+                }
+            }
+
+            // Добавляем текущее сообщение пользователя
             messages.add(OpenAIMessage(role = "user", content = message))
             
             // Отправляем запрос к OpenAI
             val request = OpenAIRequest(
-                model = "gpt-5",
+                model = modelName ?: "gpt-5",
                 messages = messages,
                 maxTokens = 1000,
                 temperature = 0.7

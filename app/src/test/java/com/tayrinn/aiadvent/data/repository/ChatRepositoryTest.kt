@@ -100,7 +100,7 @@ class ChatRepositoryTest {
         ))
         
         // When
-        val result = repository.sendMessage(userMessage, currentMessages)
+        val result = repository.sendMessage(userMessage, currentMessages, null)
         
         // Then
         assertEquals(agent1Response, result.first)

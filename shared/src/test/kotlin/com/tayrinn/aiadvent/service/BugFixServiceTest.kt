@@ -55,10 +55,10 @@ class BugFixServiceTest {
         assertEquals(2, result.bugs.size)
         assertEquals(2, result.fixes.size)
         
-        // Verify that sendMessage was called with maxTokens parameter
+        // Verify that sendMessage was called
         verify(mockRepository).sendMessage(
             any(),
-            eq(4000),  // maxTokens parameter
+            any(),  // recentMessages parameter
             anyOrNull()  // modelName parameter
         )
     }

@@ -23,9 +23,15 @@ class OpenAIChatRepository(
     /**
      * Send message to OpenAI ChatGPT and get response
      */
-    suspend fun sendMessage(content: String): Pair<String, String> {
+    suspend fun sendMessage(content: String, modelName: String? = null): Pair<String, String> {
         return try {
-            openAIApi.sendMessage(content)
+            // Получаем последние 3 сообщения для контекста
+            val recentMessages = getCurrentMessages()
+                .sortedBy { it.timestamp }
+                .takeLast(3)
+
+            // Отправляем запрос с контекстом последних сообщений
+            openAIApi.sendMessage(content, recentMessages, modelName)
         } catch (e: Exception) {
             println("Error in OpenAIChatRepository.sendMessage: ${e.message}")
             Pair(

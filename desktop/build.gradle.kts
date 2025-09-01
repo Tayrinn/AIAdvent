@@ -1,13 +1,21 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    kotlin("plugin.serialization") version "1.9.10"
     id("org.jetbrains.compose") version "1.5.11"
 }
 
-kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
-        vendor.set(JvmVendorSpec.AZUL)
+// Using system JVM
+
+// Using system JVM with Kotlin JVM target 17
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    kotlinOptions {
+        jvmTarget = "17"
     }
+}
+
+tasks.withType<JavaCompile> {
+    sourceCompatibility = "17"
+    targetCompatibility = "17"
 }
 
 // Pure Kotlin проект
@@ -19,12 +27,15 @@ dependencies {
     implementation(compose.foundation)
     implementation(compose.ui)
     
+    // Kotlinx Serialization for JSON parsing
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+
     // Локальные зависимости
     implementation(project(":shared"))
     
     // Тестирование
     testImplementation(libs.junit)
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:4.1.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }
 

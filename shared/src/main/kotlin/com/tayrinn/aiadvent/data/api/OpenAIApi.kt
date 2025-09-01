@@ -21,13 +21,13 @@ interface OpenAIApi {
     /**
      * Send a message and get response from ChatGPT
      * @param message User message content
-     * @param maxTokensParam Maximum tokens for response (null for default)
+     * @param recentMessages List of recent messages for context (last 3)
      * @param modelName Name of the AI model to use (null for default)
      * @return Pair of responses (agent1, agent2) for compatibility
      */
     suspend fun sendMessage(
         message: String,
-        maxTokensParam: Int? = null,
+        recentMessages: List<ChatMessage> = emptyList(),
         modelName: String? = null
     ): Pair<String, String>
 }

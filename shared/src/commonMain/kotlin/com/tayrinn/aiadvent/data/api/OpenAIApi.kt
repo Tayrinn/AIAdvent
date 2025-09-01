@@ -20,10 +20,14 @@ interface OpenAIApi {
     /**
      * Send a message and get response from ChatGPT
      * @param message User message content
+     * @param recentMessages List of recent messages for context (last 3)
+     * @param modelName Name of the AI model to use
      * @return Pair of responses (agent1, agent2) for compatibility
      */
     suspend fun sendMessage(
-        message: String
+        message: String,
+        recentMessages: List<com.tayrinn.aiadvent.data.model.ChatMessage> = emptyList(),
+        modelName: String? = null
     ): Pair<String, String>
 }
 

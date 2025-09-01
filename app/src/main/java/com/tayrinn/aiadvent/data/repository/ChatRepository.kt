@@ -48,7 +48,7 @@ Rules:
 - Keep responses concise but insightful
 - Respond in English only"""
     
-    suspend fun sendMessage(content: String): Pair<String, String> {
+    suspend fun sendMessage(content: String, recentMessages: List<ChatMessage> = emptyList(), modelName: String? = null): Pair<String, String> {
         return withContext(Dispatchers.IO) {
             try {
                 // Проверяем, является ли сообщение запросом на генерацию изображения
@@ -56,10 +56,29 @@ Rules:
                     return@withContext Pair("", "") // Обрабатывается отдельно в ViewModel
                 }
                 
+                // Получаем последние 3 сообщения для контекста
+                val recentMessages = chatMessageDao.getLastMessages(3)
+
                 // Агент 1: Отвечает на вопрос пользователя
                 val agent1Prompt = buildString {
                     appendLine(agent1SystemMessage)
                     appendLine()
+
+                    // Добавляем последние сообщения для контекста
+                    if (recentMessages.isNotEmpty()) {
+                        appendLine("Recent conversation context:")
+                        recentMessages.reversed().forEach { message ->
+                            val role = when {
+                                message.isUser -> "User"
+                                message.isAgent1 -> "Agent 1"
+                                message.isAgent2 -> "Agent 2"
+                                else -> "System"
+                            }
+                            appendLine("$role: ${message.content.take(200)}") // Ограничиваем длину
+                        }
+                        appendLine()
+                    }
+
                     appendLine("User question: $content")
                 }
 
@@ -84,6 +103,22 @@ Rules:
                 val agent2Prompt = buildString {
                     appendLine(agent2SystemMessage)
                     appendLine()
+
+                    // Добавляем последние сообщения для контекста
+                    if (recentMessages.isNotEmpty()) {
+                        appendLine("Recent conversation context:")
+                        recentMessages.reversed().forEach { message ->
+                            val role = when {
+                                message.isUser -> "User"
+                                message.isAgent1 -> "Agent 1"
+                                message.isAgent2 -> "Agent 2"
+                                else -> "System"
+                            }
+                            appendLine("$role: ${message.content.take(200)}") // Ограничиваем длину
+                        }
+                        appendLine()
+                    }
+
                     appendLine("User question: $content")
                     appendLine()
                     appendLine("Agent 1's response: $agent1Response")

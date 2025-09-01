@@ -23,9 +23,9 @@ class OpenAIChatRepository(
     /**
      * Send message to OpenAI ChatGPT and get response
      */
-    suspend fun sendMessage(content: String, maxTokensParam: Int? = null, modelName: String? = null): Pair<String, String> {
+    suspend fun sendMessage(content: String, recentMessages: List<ChatMessage> = emptyList(), modelName: String? = null): Pair<String, String> {
         return try {
-            openAIApi.sendMessage(content, maxTokensParam, modelName)
+            openAIApi.sendMessage(content, recentMessages, modelName)
         } catch (e: com.tayrinn.aiadvent.data.api.AIModelFailureException) {
             // Пробрасываем исключение дальше - модель не справилась с задачей
             println("🤖 AI Model Failure in OpenAIChatRepository: ${e.message}")

@@ -48,7 +48,7 @@ class ChatViewModelTest {
         val agent1Response = "I'm doing well, thank you!"
         val agent2Response = "Great to hear that!"
         
-        whenever(mockRepository.sendMessage(any(), any())).thenReturn(Pair(agent1Response, agent2Response))
+        whenever(mockRepository.sendMessage(any(), any(), any())).thenReturn(Pair(agent1Response, agent2Response))
         
         // When
         viewModel.sendMessage(userMessage)
@@ -56,7 +56,7 @@ class ChatViewModelTest {
         
         // Then
         verify(mockRepository, times(1)).insertMessage(any())
-        verify(mockRepository, times(1)).sendMessage(userMessage, any())
+        verify(mockRepository, times(1)).sendMessage(userMessage, any(), any())
     }
     
     @Test
@@ -66,7 +66,7 @@ class ChatViewModelTest {
         
         // Then
         verify(mockRepository, times(0)).insertMessage(any())
-        verify(mockRepository, times(0)).sendMessage(any(), any())
+        verify(mockRepository, times(0)).sendMessage(any(), any(), any())
     }
     
     @Test
@@ -76,7 +76,7 @@ class ChatViewModelTest {
         
         // Then
         verify(mockRepository, times(0)).insertMessage(any())
-        verify(mockRepository, times(0)).sendMessage(any(), any())
+        verify(mockRepository, times(0)).sendMessage(any(), any(), any())
     }
     
     // Тест убран, так как isImageGenerationRequest является приватным методом

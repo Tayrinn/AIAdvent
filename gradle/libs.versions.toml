@@ -1,27 +1,27 @@
 [versions]
 agp = "8.2.2"
 kotlin = "1.9.10"
-compose = "1.6.0"
+compose = "1.5.11"
 compose-compiler = "1.5.8"
-compose-desktop = "1.6.0"
+compose-desktop = "1.5.11"
 
 [libraries]
-androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.17.0" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version = "1.12.0" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version = "1.7.1" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version = "1.1.5" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version = "3.5.1" }
 junit = { group = "junit", name = "junit", version = "4.13.2" }
-material = { group = "com.google.android.material", name = "material", version = "1.12.0" }
+material = { group = "com.google.android.material", name = "material", version = "1.11.0" }
 
 # Ktor for web server
-ktor-server-core = { group = "io.ktor", name = "ktor-server-core-jvm", version = "3.2.3" }
-ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty-jvm", version = "3.2.3" }
-ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation-jvm", version = "3.2.3" }
-ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json-jvm", version = "3.2.3" }
-ktor-server-cors = { group = "io.ktor", name = "ktor-server-cors-jvm", version = "3.2.3" }
-ktor-server-call-logging = { group = "io.ktor", name = "ktor-server-call-logging-jvm", version = "3.2.3" }
-ktor-server-resources = { group = "io.ktor", name = "ktor-server-resources-jvm", version = "3.2.3" }
-ktor-server-html-builder = { group = "io.ktor", name = "ktor-server-html-builder-jvm", version = "3.2.3" }
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core-jvm", version = "2.3.12" }
+ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty-jvm", version = "2.3.12" }
+ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation-jvm", version = "2.3.12"}
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json-jvm", version = "2.3.12" }
+ktor-server-cors = { group = "io.ktor", name = "ktor-server-cors-jvm", version = "2.3.12" }
+ktor-server-call-logging = { group = "io.ktor", name = "ktor-server-call-logging-jvm", version = "2.3.12" }
+ktor-server-resources = { group = "io.ktor", name = "ktor-server-resources-jvm", version = "2.3.12" }
+ktor-server-html-builder = { group = "io.ktor", name = "ktor-server-html-builder-jvm", version = "2.3.12" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
