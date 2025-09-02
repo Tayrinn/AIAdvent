@@ -102,5 +102,31 @@
         "isTestReport": false,
         "imageUrl": null,
         "imagePrompt": null
+    },
+    {
+        "id": 9,
+        "content": "Привет! Как дела?",
+        "isUser": true,
+        "timestamp": 1756844104143,
+        "isError": false,
+        "isAgent1": false,
+        "isAgent2": false,
+        "isImageGeneration": false,
+        "isTestReport": false,
+        "imageUrl": null,
+        "imagePrompt": null
+    },
+    {
+        "id": 10,
+        "content": "🤖 **deepseek-ai/DeepSeek-V3-0324 (🌡️ 0,7):** Привет, Оля! 😊 У меня всегда отлично, ведь я готов помогать тебе с любыми вопросами! А как твои дела? Чем сегодня занимаешься? 🌟  \n\nМожешь рассказать что-нибудь интересное или хочешь обсудить какую-то тему? Я весь во внимании! 💖",
+        "isUser": false,
+        "timestamp": 1756844111117,
+        "isError": false,
+        "isAgent1": true,
+        "isAgent2": false,
+        "isImageGeneration": false,
+        "isTestReport": false,
+        "imageUrl": null,
+        "imagePrompt": null
     }
 ]

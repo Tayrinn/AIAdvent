@@ -59,6 +59,20 @@ fun App() {
     // Создаем сервис распознавания речи
     val speechToTextService = remember { SpeechToTextService() }
 
+    // Функция для воспроизведения аудио
+    val playAudio: (String) -> Unit = { text ->
+        scope.launch {
+            try {
+                println("🔊 Генерируем аудио для: ${text.take(50)}...")
+                val audioFilePath = speechToTextService.generateSpeech(text)
+                // Воспроизводим аудио файл
+                playAudioFile(audioFilePath)
+            } catch (e: Exception) {
+                println("❌ Ошибка воспроизведения: ${e.message}")
+            }
+        }
+    }
+
 
     
     // Загружаем сообщения из хранилища и добавляем приветственное сообщение
@@ -270,7 +284,7 @@ fun App() {
                 state = rememberLazyListState()
             ) {
                 items(messages) { message ->
-                    ChatMessageItem(message = message)
+                    ChatMessageItem(message = message, onPlayAudio = playAudio)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
@@ -350,7 +364,7 @@ fun App() {
                             }
 
                             // Небольшая задержка для сохранения
-                            kotlinx.coroutines.delay(500)
+                            scope.launch { kotlinx.coroutines.delay(500) }
 
                             // Очищаем поле ввода
                             inputText.value = ""
@@ -413,8 +427,17 @@ fun App() {
                                                 println("❌ Ошибка сохранения ответа AI: ${e.message}")
                                             }
 
+                                            // Автоматически озвучиваем ответ AI
+                                            try {
+                                                println("🔊 Автоматическое озвучивание ответа AI...")
+                                                val audioFilePath = speechToTextService.generateSpeech(agent1Response)
+                                                playAudioFile(audioFilePath)
+                                            } catch (e: Exception) {
+                                                println("❌ Ошибка автоматического озвучивания: ${e.message}")
+                                            }
+
                                             // Небольшая задержка для сохранения
-                                            kotlinx.coroutines.delay(500)
+                                            scope.launch { kotlinx.coroutines.delay(500) }
                                         } catch (e: Exception) {
                                             val errorMessage = ChatMessage(
                                                 content = "❌ **Error:** ${e.message}",
@@ -454,7 +477,7 @@ fun App() {
 }
 
 @Composable
-fun ChatMessageItem(message: ChatMessage) {
+fun ChatMessageItem(message: ChatMessage, onPlayAudio: (String) -> Unit = {}) {
     val backgroundColor = when {
         message.isUser -> MaterialTheme.colorScheme.primaryContainer
         message.isAgent1 -> MaterialTheme.colorScheme.secondaryContainer
@@ -479,12 +502,30 @@ fun ChatMessageItem(message: ChatMessage) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = backgroundColor)
     ) {
-        Text(
-            text = message.content,
-            color = textColor,
-            modifier = Modifier.padding(16.dp),
-            fontSize = 14.sp
-        )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = message.content,
+                color = textColor,
+                modifier = Modifier.padding(16.dp),
+                fontSize = 14.sp
+            )
+
+            // Кнопка воспроизведения в правом верхнем углу
+            IconButton(
+                onClick = { onPlayAudio(message.content) },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "Воспроизвести сообщение",
+                    tint = textColor.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }
 
@@ -503,6 +544,123 @@ fun selectFile(): String? {
         fileChooser.selectedFile.absolutePath
     } else {
         null
+    }
+}
+
+/**
+ * Воспроизводит аудио данные
+ */
+fun playAudioData(audioData: ByteArray) {
+    try {
+        println("🔊 Воспроизводим аудио (${audioData.size} байт)...")
+
+        // Создаем временный файл для воспроизведения
+        val tempFile = kotlin.io.path.createTempFile("tts_audio", ".mp3").toFile()
+        tempFile.writeBytes(audioData)
+
+        // Используем Java Sound API для воспроизведения
+        val audioInputStream = javax.sound.sampled.AudioSystem.getAudioInputStream(tempFile)
+        val clip = javax.sound.sampled.AudioSystem.getClip()
+
+        // Получаем информацию о формате аудио
+        val format = audioInputStream.format
+        println("📊 Формат аудио: ${format.sampleRate}Hz, ${format.channels} каналов, ${format.sampleSizeInBits} бит")
+
+        clip.open(audioInputStream)
+        clip.start()
+
+        // Ждем окончания воспроизведения с небольшим запасом
+        val durationMs = (clip.microsecondLength / 1000) + 500
+        println("⏱️ Длительность воспроизведения: ${durationMs}мс")
+        Thread.sleep(durationMs)
+
+        clip.close()
+        audioInputStream.close()
+        tempFile.delete()
+
+        println("✅ Воспроизведение завершено")
+    } catch (e: Exception) {
+        println("❌ Ошибка воспроизведения аудио: ${e.message}")
+        e.printStackTrace()
+    }
+}
+
+/**
+ * Воспроизводит аудио файл по пути
+ */
+fun playAudioFile(audioFilePath: String) {
+    try {
+        println("🔊 Воспроизводим файл: $audioFilePath")
+
+        val audioFile = java.io.File(audioFilePath)
+
+        if (!audioFile.exists()) {
+            println("❌ Файл не найден: $audioFilePath")
+            return
+        }
+
+        // Определяем команду для воспроизведения в зависимости от ОС
+        val os = System.getProperty("os.name").lowercase()
+        val command = when {
+            os.contains("mac") || os.contains("darwin") -> {
+                // Используем afplay для macOS
+                arrayOf("afplay", audioFilePath)
+            }
+            os.contains("linux") -> {
+                // Используем aplay или mpg123 для Linux
+                arrayOf("mpg123", audioFilePath)
+            }
+            os.contains("windows") -> {
+                // Используем встроенный проигрыватель Windows
+                arrayOf("cmd", "/c", "start", "/min", audioFilePath)
+            }
+            else -> {
+                println("❌ Неподдерживаемая ОС: $os")
+                return
+            }
+        }
+
+        // Проверяем доступность команды
+        val commandCheck = ProcessBuilder("which", command[0])
+            .redirectErrorStream(true)
+            .start()
+
+        val checkExitCode = commandCheck.waitFor()
+        if (checkExitCode != 0) {
+            println("❌ Команда ${command[0]} не найдена в системе")
+            return
+        }
+
+        println("🎵 Используем команду: ${command.joinToString(" ")}")
+
+        // Запускаем процесс воспроизведения
+        val process = ProcessBuilder(*command)
+            .redirectErrorStream(true)
+            .start()
+
+        // Читаем вывод процесса (для отладки)
+        val reader = process.inputStream.bufferedReader()
+        var line: String?
+        while (reader.readLine().also { line = it } != null) {
+            println("Audio: $line")
+        }
+
+        // Ждем завершения воспроизведения
+        val exitCode = process.waitFor()
+
+        if (exitCode == 0) {
+            println("✅ Воспроизведение завершено успешно")
+        } else {
+            println("⚠️ Процесс воспроизведения завершился с кодом: $exitCode")
+        }
+
+        // Удаляем файл после воспроизведения
+        audioFile.delete()
+        println("🗑️ Временный файл удален")
+
+    } catch (e: Exception) {
+        println("❌ Ошибка воспроизведения файла: ${e.message}")
+        e.printStackTrace()
     }
 }
 

@@ -61,3 +61,14 @@ data class HuggingFaceErrorDetails(
 data class WhisperResponse(
     val text: String
 )
+
+// Модели для TTS (синтез речи)
+@Serializable
+data class TTSRequest(
+    val text: String
+)
+
+@Serializable
+data class TTSResponse(
+    val audio: String // base64 encoded audio
+)

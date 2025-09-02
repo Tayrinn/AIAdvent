@@ -22,6 +22,13 @@ interface HuggingFaceApi {
      * @return Whisper response with transcribed text
      */
     suspend fun transcribeAudio(audioData: ByteArray): okhttp3.Response
+
+    /**
+     * Generate speech from text using TTS model
+     * @param text Text to convert to speech
+     * @return TTS response with audio data
+     */
+    suspend fun generateSpeech(text: String): okhttp3.Response
 }
 
 /**
@@ -116,6 +123,94 @@ class HuggingFaceApiImpl : HuggingFaceApi {
                 .addHeader("Content-Type", "audio/wav")
                 .post(okhttp3.RequestBody.create("audio/wav".toMediaType(), audioData))
                 .build()
+
+            return@withContext okhttp3.Response.Builder()
+                .request(okHttpRequest)
+                .protocol(okhttp3.Protocol.HTTP_1_1)
+                .code(500)
+                .message(e.message ?: "Unknown error")
+                .body(errorBody)
+                .build()
+        }
+    }
+
+    override suspend fun generateSpeech(text: String): okhttp3.Response = withContext(Dispatchers.IO) {
+        try {
+            val apiKey = configService.getHuggingFaceApiKey()
+            val modelUrl = "https://router.huggingface.co/fal-ai/kokoro"
+
+            println("🔊 Генерируем речь для текста: ${text.take(50)}...")
+
+            // Создаем JSON запрос
+            val requestJson = "{\"text\":\"${text.replace("\"", "\\\"")}\"}"
+            val requestBody = requestJson.toByteArray(Charsets.UTF_8)
+
+            // Создаем HTTP запрос
+            val request = HttpRequest.newBuilder()
+                .uri(URI.create(modelUrl))
+                .header("Authorization", "Bearer $apiKey")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(requestBody))
+                .build()
+
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+
+            if (response.statusCode() == 200) {
+                println("✅ TTS API успешно сгенерировал речь")
+
+                // Парсим JSON ответ
+                val responseBody = response.body()
+                val mediaType = "application/json".toMediaType()
+                val okHttpResponseBody = ResponseBody.create(mediaType, responseBody.toByteArray())
+
+                // Создаем okhttp3.Request для Response.Builder
+                val okHttpRequest = okhttp3.Request.Builder()
+                    .url(modelUrl)
+                    .addHeader("Authorization", "Bearer $apiKey")
+                    .addHeader("Content-Type", "application/json")
+                    .post(okhttp3.RequestBody.create("application/json".toMediaType(), requestBody))
+                    .build()
+
+                return@withContext okhttp3.Response.Builder()
+                    .request(okHttpRequest)
+                    .protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(response.statusCode())
+                    .message("OK")
+                    .body(okHttpResponseBody)
+                    .build()
+            } else {
+                println("❌ Ошибка TTS API: ${response.statusCode()} - ${response.body()}")
+
+                val mediaType = "application/json".toMediaType()
+                val errorBody = ResponseBody.create(mediaType, "{\"error\": \"${response.body()}\"}".toByteArray())
+
+                // Создаем okhttp3.Request для Response.Builder
+                val okHttpRequest = okhttp3.Request.Builder()
+                    .url(modelUrl)
+                    .addHeader("Authorization", "Bearer $apiKey")
+                    .addHeader("Content-Type", "application/json")
+                    .post(okhttp3.RequestBody.create("application/json".toMediaType(), requestBody))
+                    .build()
+
+                return@withContext okhttp3.Response.Builder()
+                    .request(okHttpRequest)
+                    .protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(response.statusCode())
+                    .message(response.body())
+                    .body(errorBody)
+                    .build()
+            }
+        } catch (e: Exception) {
+            println("❌ Ошибка при генерации речи: ${e.message}")
+            e.printStackTrace()
+
+            // Создаем пустой okhttp3.Request для Response.Builder
+            val okHttpRequest = okhttp3.Request.Builder()
+                .url("https://router.huggingface.co/fal-ai/kokoro")
+                .build()
+
+            val mediaType = "application/json".toMediaType()
+            val errorBody = ResponseBody.create(mediaType, "{\"error\": \"${e.message}\"}".toByteArray())
 
             return@withContext okhttp3.Response.Builder()
                 .request(okHttpRequest)

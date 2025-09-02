@@ -140,4 +140,82 @@ class SpeechToTextService(
         val audioData = recordAudio(durationSeconds)
         return transcribeAudio(audioData)
     }
+
+    /**
+     * Генерирует речь из текста с использованием Python скрипта и gTTS
+     */
+    suspend fun generateSpeech(text: String): String = withContext(Dispatchers.IO) {
+        try {
+            println("🔊 Запускаем генерацию речи через Python...")
+
+            // Определяем пути
+            val projectDir = System.getProperty("user.dir")
+            val scriptPath = "$projectDir/desktop/src/main/python/tts_service.py"
+            val venvPython = "$projectDir/venv_tts/bin/python3"
+
+            // Исправляем путь, если мы находимся в desktop директории
+            val actualProjectDir = if (projectDir.endsWith("/desktop")) {
+                projectDir.substring(0, projectDir.length - 8) // Убираем "/desktop"
+            } else {
+                projectDir
+            }
+
+            val actualScriptPath = "$actualProjectDir/desktop/src/main/python/tts_service.py"
+            val actualVenvPython = "$actualProjectDir/venv_tts/bin/python3"
+
+            println("📂 Путь к скрипту: $actualScriptPath")
+            println("🐍 Python из venv: $actualVenvPython")
+
+            // Проверяем существование файлов
+            val scriptFile = java.io.File(actualScriptPath)
+            val pythonFile = java.io.File(actualVenvPython)
+
+            if (!scriptFile.exists()) {
+                throw Exception("Python скрипт не найден: $actualScriptPath")
+            }
+
+            if (!pythonFile.exists()) {
+                throw Exception("Python из виртуального окружения не найден: $actualVenvPython")
+            }
+
+            // Создаем процесс Python с виртуальным окружением
+            val process = ProcessBuilder(actualVenvPython, actualScriptPath, text)
+                .redirectErrorStream(true)
+                .start()
+
+            // Читаем вывод процесса
+            val reader = process.inputStream.bufferedReader()
+            var audioFilePath: String? = null
+            var line: String?
+
+            while (reader.readLine().also { line = it } != null) {
+                println("Python: $line")
+                if (line?.startsWith("/") == true || line?.contains("\\") == true) {
+                    audioFilePath = line
+                }
+            }
+
+            // Ждем завершения процесса
+            val exitCode = process.waitFor()
+
+            if (exitCode == 0 && audioFilePath != null) {
+                println("✅ Python скрипт выполнен успешно")
+
+                // Проверяем, что файл существует
+                val audioFile = java.io.File(audioFilePath)
+                if (audioFile.exists() && audioFile.length() > 0) {
+                    println("✅ Аудио файл создан успешно, размер: ${audioFile.length()} байт")
+                    audioFilePath
+                } else {
+                    throw Exception("Аудио файл не найден или пустой: $audioFilePath")
+                }
+            } else {
+                throw Exception("Ошибка выполнения Python скрипта (код выхода: $exitCode)")
+            }
+        } catch (e: Exception) {
+            println("❌ Ошибка генерации речи: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
+    }
 }
