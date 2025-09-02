@@ -150,4 +150,9 @@ class ConfigService {
      * Получает все доступные ключи конфигурации
      */
     fun getAvailableKeys(): Set<String> = properties.stringPropertyNames()
+
+    /**
+     * Получает Hugging Face API ключ
+     */
+    fun getHuggingFaceApiKey(): String = getProperty("huggingface.api.key", "")
 }

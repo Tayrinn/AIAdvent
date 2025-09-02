@@ -35,3 +35,8 @@ interface OpenAIApi {
  * Implementation of OpenAI API using HTTP client
  */
 expect class OpenAIApiImpl() : OpenAIApi
+
+/**
+ * Implementation of Hugging Face API
+ */
+expect fun createHuggingFaceApi(): HuggingFaceApi

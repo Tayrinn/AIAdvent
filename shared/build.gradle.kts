@@ -35,6 +35,9 @@ dependencies {
     // Kotlinx Serialization for JSON parsing
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
+    // OkHttp for HTTP requests
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // Ktor server dependencies
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)

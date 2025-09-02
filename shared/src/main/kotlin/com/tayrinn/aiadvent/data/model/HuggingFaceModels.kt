@@ -55,3 +55,9 @@ data class HuggingFaceErrorDetails(
     val param: String? = null,
     val code: String? = null
 )
+
+// Модели для Whisper (распознавание речи)
+@Serializable
+data class WhisperResponse(
+    val text: String
+)

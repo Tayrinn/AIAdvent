@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +24,7 @@ import com.tayrinn.aiadvent.data.repository.OpenAIChatRepository
 import com.tayrinn.aiadvent.data.local.ChatStorage
 import com.tayrinn.aiadvent.service.*
 import com.tayrinn.aiadvent.util.TestRunner
+import com.tayrinn.aiadvent.service.SpeechToTextService
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.swing.JFileChooser
@@ -34,6 +36,7 @@ fun App() {
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val inputText = remember { mutableStateOf("") }
     val isLoading = remember { mutableStateOf(false) }
+    val isRecording = remember { mutableStateOf(false) }
     val temperature = remember { mutableStateOf(0.7f) }
     val modelName = remember { mutableStateOf("deepseek-ai/DeepSeek-V3-0324") }
     val scope = rememberCoroutineScope()
@@ -52,6 +55,9 @@ fun App() {
     val testGenerationService = remember { TestGenerationService(openAIApi) }
     val testExecutionService = remember { TestExecutionService() }
     val testWorkflowService = remember { TestWorkflowService(fileService, bugFixService, testGenerationService, testExecutionService) }
+
+    // Создаем сервис распознавания речи
+    val speechToTextService = remember { SpeechToTextService() }
 
 
     
@@ -281,15 +287,49 @@ fun App() {
                     onValueChange = { inputText.value = it },
                     label = { Text("Type a message...") },
                     modifier = Modifier.weight(1f),
-                    enabled = !isLoading.value
+                    enabled = !isLoading.value && !isRecording.value
                 )
-                
+
                 Spacer(modifier = Modifier.width(8.dp))
-                
+
+                // Кнопка распознавания речи
+                IconButton(
+                    onClick = {
+                        if (!isRecording.value && !isLoading.value) {
+                            scope.launch {
+                                try {
+                                    isRecording.value = true
+                                    println("🎤 Начинаем распознавание речи...")
+
+                                    val transcribedText = speechToTextService.recordAndTranscribe(5)
+                                    if (transcribedText.isNotBlank()) {
+                                        inputText.value = transcribedText
+                                        println("✅ Распознанный текст: \"$transcribedText\"")
+                                    }
+                                } catch (e: Exception) {
+                                    println("❌ Ошибка распознавания речи: ${e.message}")
+                                } finally {
+                                    isRecording.value = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isLoading.value,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isRecording.value) Icons.Filled.Close else Icons.Filled.PlayArrow,
+                        contentDescription = if (isRecording.value) "Остановить запись" else "Распознать речь",
+                        tint = if (isRecording.value) Color.Red else MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 Button(
                     onClick = {
                         val text = inputText.value.trim()
-                        if (text.isNotEmpty()) {
+                        if (text.isNotEmpty() && !isRecording.value) {
                             // Добавляем сообщение пользователя
                             val userMessage = ChatMessage(
                                 content = text,
@@ -308,6 +348,9 @@ fun App() {
                                     e.printStackTrace()
                                 }
                             }
+
+                            // Небольшая задержка для сохранения
+                            kotlinx.coroutines.delay(500)
 
                             // Очищаем поле ввода
                             inputText.value = ""
@@ -369,6 +412,9 @@ fun App() {
                                             } catch (e: Exception) {
                                                 println("❌ Ошибка сохранения ответа AI: ${e.message}")
                                             }
+
+                                            // Небольшая задержка для сохранения
+                                            kotlinx.coroutines.delay(500)
                                         } catch (e: Exception) {
                                             val errorMessage = ChatMessage(
                                                 content = "❌ **Error:** ${e.message}",
