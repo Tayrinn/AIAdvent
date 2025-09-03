@@ -405,39 +405,69 @@ fun App() {
                                 //     )
                                 // }
                                 else -> {
-                                    // Отправляем сообщение к ChatGPT
+                                    // Отправляем сообщение к ChatGPT в трёхэтапном процессе
                                     scope.launch {
                                         isLoading.value = true
                                         try {
                                             // Получаем последние 3 сообщения для контекста (исключая текущее)
                                             val recentMessages = messages.takeLast(3).filter { it.content != text }
-                                            val (agent1Response, _) = chatRepository.sendMessage(text, recentMessages, modelName.value)
 
-                                            val aiMessage = ChatMessage(
-                                                content = "🤖 **${modelName.value} (🌡️ ${String.format("%.1f", temperature.value)}):** $agent1Response",
+                                            // Этап 1: Размышления AI
+                                            println("🤔 Этап 1: AI размышляет...")
+                                            val thinkingPrompt = "Внимательно обдумай вопрос пользователя и напиши свои рассуждения. Проанализируй все аспекты вопроса. Напиши только рассуждения, без самого ответа или дополнительных вопросов пользователю."
+                                            val (thinkingResponse, _) = chatRepository.sendMessage(
+                                                "$thinkingPrompt\n\nВопрос пользователя: $text", 
+                                                recentMessages, 
+                                                modelName.value
+                                            )
+
+                                            val thinkingMessage = ChatMessage(
+                                                content = "🤖 **Думает:** $thinkingResponse",
                                                 isUser = false,
                                                 isAgent1 = true
                                             )
-                                            messages.add(aiMessage)
+                                            messages.add(thinkingMessage)
+                                            chatStorage.saveMessage(thinkingMessage)
 
-                                            // Сохраняем ответ AI в базу данных
-                                            try {
-                                                chatStorage.saveMessage(aiMessage)
-                                            } catch (e: Exception) {
-                                                println("❌ Ошибка сохранения ответа AI: ${e.message}")
-                                            }
+                                            kotlinx.coroutines.delay(1000)
 
-                                            // Автоматически озвучиваем ответ AI
-                                            try {
-                                                println("🔊 Автоматическое озвучивание ответа AI...")
-                                                val audioFilePath = speechToTextService.generateSpeech(agent1Response)
-                                                playAudioFile(audioFilePath)
-                                            } catch (e: Exception) {
-                                                println("❌ Ошибка автоматического озвучивания: ${e.message}")
-                                            }
+                                            // Этап 2: Проверка рассуждений
+                                            println("🔍 Этап 2: AI проверяет рассуждения...")
+                                            val confirmationPrompt = "Прочти свои рассуждения и подтверди, что они верные. Найди возможные ошибки или упущения. Напиши только анализ и проверку рассуждений, без дополнительных вопросов или самого ответа."
+                                            val (confirmationResponse, _) = chatRepository.sendMessage(
+                                                "$confirmationPrompt\n\nМои рассуждения: $thinkingResponse\n\nВопрос пользователя: $text", 
+                                                emptyList(), // Не передаём контекст, чтобы сосредоточиться на проверке
+                                                modelName.value
+                                            )
 
-                                            // Небольшая задержка для сохранения
-                                            scope.launch { kotlinx.coroutines.delay(500) }
+                                            val confirmationMessage = ChatMessage(
+                                                content = "🤖 **Ищу подтверждения:** $confirmationResponse",
+                                                isUser = false,
+                                                isAgent1 = true
+                                            )
+                                            messages.add(confirmationMessage)
+                                            chatStorage.saveMessage(confirmationMessage)
+
+                                            kotlinx.coroutines.delay(1000)
+
+                                            // Этап 3: Финальный ответ
+                                            println("✅ Этап 3: AI даёт финальный ответ...")
+                                            val finalPrompt = "На основе своих рассуждений и их проверки дай полный и точный ответ пользователю."
+                                            val (finalResponse, _) = chatRepository.sendMessage(
+                                                "$finalPrompt\n\nРассуждения: $thinkingResponse\n\nПроверка: $confirmationResponse\n\nВопрос пользователя: $text", 
+                                                emptyList(), // Не передаём контекст, чтобы сосредоточиться на финальном ответе
+                                                modelName.value
+                                            )
+
+                                            val finalMessage = ChatMessage(
+                                                content = finalResponse,
+                                                isUser = false,
+                                                isAgent1 = true
+                                            )
+                                            messages.add(finalMessage)
+                                            chatStorage.saveMessage(finalMessage)
+
+                                            kotlinx.coroutines.delay(500)
                                         } catch (e: Exception) {
                                             val errorMessage = ChatMessage(
                                                 content = "❌ **Error:** ${e.message}",
