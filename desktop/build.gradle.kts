@@ -29,6 +29,9 @@ dependencies {
     
     // Kotlinx Serialization for JSON parsing
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+    
+    // HTTP клиент для OAuth
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Локальные зависимости
     implementation(project(":shared"))

@@ -7,7 +7,7 @@ import java.util.Properties
 /**
  * Сервис для работы с конфигурационными файлами
  */
-class ConfigService {
+object ConfigService {
     
     private val properties = Properties()
     private var isLoaded = false

@@ -4,17 +4,14 @@
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.9.10" apply false
-    id("org.jetbrains.compose") version "1.5.11" apply false
+    alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.compose) apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
+    id("com.google.gms.google-services") version "4.4.0" apply false
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    }
-}
+// Repositories are now managed by dependencyResolutionManagement in settings.gradle.kts
 
 tasks.register("clean", Delete::class) {
     delete(rootProject.buildDir)

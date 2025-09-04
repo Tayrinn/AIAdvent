@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.tayrinn.aiadvent.R
+import com.tayrinn.aiadvent.auth.GoogleUser
 import com.tayrinn.aiadvent.data.model.ChatMessage
 import com.tayrinn.aiadvent.ui.viewmodel.ChatViewModel
 import com.tayrinn.aiadvent.ui.viewmodel.ChatViewModelFactory
@@ -35,6 +36,8 @@ import com.tayrinn.aiadvent.data.repository.ChatRepository
 
 @Composable
 fun ChatScreen(
+    user: GoogleUser,
+    onSignOut: () -> Unit,
     viewModel: ChatViewModel = viewModel(factory = ChatViewModelFactory(createRepository()))
 ) {
     Log.d("ChatScreen", "ChatScreen composable called")
@@ -80,7 +83,7 @@ fun ChatScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // Заголовок с кнопкой настроек
+        // Заголовок с информацией о пользователе
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -88,11 +91,38 @@ fun ChatScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
+            // Информация о пользователе
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Аватар пользователя
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(user.photoUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Аватар пользователя",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(20.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Column {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Привет, ${user.displayName}!",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             
                                     Row {
                             // Отображение лимитов API
@@ -148,6 +178,15 @@ fun ChatScreen(
                                 Icon(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = "Settings"
+                                )
+                            }
+                            
+                            // Кнопка выхода
+                            IconButton(onClick = onSignOut) {
+                                Icon(
+                                    imageVector = Icons.Default.ExitToApp,
+                                    contentDescription = "Выйти",
+                                    tint = MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -538,12 +577,12 @@ fun createRepository(): ChatRepository {
         .build()
     val kandinskyApi = kandinskyRetrofit.create(com.tayrinn.aiadvent.data.api.KandinskyApi::class.java)
     
-    val chatMessageDao = com.tayrinn.aiadvent.data.database.ChatDatabase.getDatabase(context).chatMessageDao()
+    // val chatMessageDao = com.tayrinn.aiadvent.data.database.ChatDatabase.getDatabase(context).chatMessageDao()
     val imageGenerationService = com.tayrinn.aiadvent.data.service.ImageGenerationService(
         kandinskyApi,
         context,
         com.tayrinn.aiadvent.data.preferences.ApiLimitsPreferences(context)
     )
     
-    return ChatRepository(ollamaApi, chatMessageDao, imageGenerationService, context)
+    return ChatRepository(ollamaApi, /* chatMessageDao, */ imageGenerationService, context)
 }

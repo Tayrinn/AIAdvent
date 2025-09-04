@@ -25,6 +25,10 @@ import com.tayrinn.aiadvent.data.local.ChatStorage
 import com.tayrinn.aiadvent.service.*
 import com.tayrinn.aiadvent.util.TestRunner
 import com.tayrinn.aiadvent.service.SpeechToTextService
+import auth.WebGoogleAuthService
+import auth.DesktopUser
+import ui.DesktopAuthScreen
+import ui.DesktopAuthLoadingScreen
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.swing.JFileChooser
@@ -33,6 +37,81 @@ import javax.swing.filechooser.FileNameExtensionFilter
 @Composable
 @Preview
 fun App() {
+    val authService = remember { WebGoogleAuthService() }
+    var currentUser by remember { mutableStateOf<DesktopUser?>(null) }
+    var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
+    
+    // Проверяем состояние авторизации при запуске
+    LaunchedEffect(Unit) {
+        val user = authService.getCurrentUser()
+        if (user != null) {
+            currentUser = user
+            authState = AuthState.Authenticated
+        } else {
+            authState = AuthState.Unauthenticated
+        }
+    }
+    
+    when (authState) {
+        AuthState.Loading -> {
+            DesktopAuthLoadingScreen()
+        }
+        
+        AuthState.Unauthenticated -> {
+            DesktopAuthScreen(
+                authService = authService,
+                onAuthSuccess = { user ->
+                    currentUser = user
+                    authState = AuthState.Authenticated
+                    println("✅ Пользователь авторизован: ${user.name} (${user.email})")
+                },
+                onAuthError = { error ->
+                    println("❌ Ошибка авторизации: $error")
+                    authState = AuthState.Error(error)
+                }
+            )
+        }
+        
+        AuthState.Authenticated -> {
+            currentUser?.let { user ->
+                MainAppContent(
+                    user = user,
+                    onSignOut = {
+                        authService.signOut()
+                        currentUser = null
+                        authState = AuthState.Unauthenticated
+                    }
+                )
+            }
+        }
+        
+        is AuthState.Error -> {
+            DesktopAuthScreen(
+                authService = authService,
+                onAuthSuccess = { user ->
+                    currentUser = user
+                    authState = AuthState.Authenticated
+                },
+                onAuthError = { error ->
+                    println("❌ Ошибка авторизации: $error")
+                }
+            )
+        }
+    }
+}
+
+sealed class AuthState {
+    object Loading : AuthState()
+    object Unauthenticated : AuthState()
+    object Authenticated : AuthState()
+    data class Error(val message: String) : AuthState()
+}
+
+@Composable
+fun MainAppContent(
+    user: DesktopUser,
+    onSignOut: () -> Unit
+) {
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val inputText = remember { mutableStateOf("") }
     val isLoading = remember { mutableStateOf(false) }
@@ -110,7 +189,7 @@ fun App() {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Заголовок и кнопки
+            // Заголовок с информацией о пользователе
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -118,11 +197,46 @@ fun App() {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "AIAdvent Desktop + Hugging Face",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                // Информация о пользователе
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Аватар пользователя (иконка)
+                    Card(
+                        modifier = Modifier.size(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Пользователь",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Column {
+                        Text(
+                            text = "AIAdvent Desktop",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Привет, ${user.name}!",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 
                 Row {
                     Button(
@@ -180,8 +294,24 @@ fun App() {
                     ) {
                         Text("📁 Открыть файл")
                     }
-
-
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    // Кнопка выхода
+                    Button(
+                        onClick = onSignOut,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Выйти",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Выйти")
+                    }
                 }
             }
             

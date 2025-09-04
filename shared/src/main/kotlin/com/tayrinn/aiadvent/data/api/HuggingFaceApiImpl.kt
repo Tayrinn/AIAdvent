@@ -40,7 +40,7 @@ class HuggingFaceApiImpl : HuggingFaceApi {
         .connectTimeout(java.time.Duration.ofSeconds(30))
         .build()
 
-    private val configService = ConfigService()
+    private val configService = ConfigService
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun transcribeAudio(audioData: ByteArray): okhttp3.Response = withContext(Dispatchers.IO) {

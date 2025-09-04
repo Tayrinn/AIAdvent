@@ -1,0 +1,33 @@
+{
+  "project_info": {
+    "project_number": "95693732704",
+    "project_id": "aiadvent-app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:95693732704:android:aiadvent",
+        "android_client_info": {
+          "package_name": "com.tayrinn.aiadvent"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "95693732704-lcjviftb0ldbs839t59vhihv2qk4j7po.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "placeholder-key"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

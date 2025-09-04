@@ -7,11 +7,15 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.tayrinn.aiadvent.auth.GoogleUser
+import com.tayrinn.aiadvent.ui.auth.*
 import com.tayrinn.aiadvent.ui.screens.ChatScreen
 import com.tayrinn.aiadvent.ui.theme.AIAdventTheme
 
@@ -75,11 +79,60 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AIAdventApp() {
+    val context = LocalContext.current
+    val authViewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory(context))
+    val authState by authViewModel.authState.collectAsState()
+    
+    when (authState) {
+        is AuthState.Loading -> {
+            AuthLoadingScreen()
+        }
+        
+        is AuthState.Unauthenticated -> {
+            AuthScreen(
+                onAuthSuccess = { user ->
+                    Log.d("MainActivity", "User authenticated: ${user.email}")
+                },
+                onAuthError = { error ->
+                    Log.e("MainActivity", "Auth error: $error")
+                }
+            )
+        }
+        
+        is AuthState.Authenticated -> {
+            val user = (authState as AuthState.Authenticated).user
+            Log.d("MainActivity", "Authenticated user: ${user.email}")
+            
+            // Основное приложение с навигацией
+            MainAppContent(user = user, onSignOut = { authViewModel.signOut() })
+        }
+        
+        is AuthState.Error -> {
+            AuthScreen(
+                onAuthSuccess = { user ->
+                    Log.d("MainActivity", "User authenticated: ${user.email}")
+                },
+                onAuthError = { error ->
+                    Log.e("MainActivity", "Auth error: $error")
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun MainAppContent(
+    user: GoogleUser,
+    onSignOut: () -> Unit
+) {
     val navController = rememberNavController()
     
     NavHost(navController = navController, startDestination = "chat") {
         composable("chat") {
-            ChatScreen()
+            ChatScreen(
+                user = user,
+                onSignOut = onSignOut
+            )
         }
     }
 }

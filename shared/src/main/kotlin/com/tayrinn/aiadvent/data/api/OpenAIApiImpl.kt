@@ -33,7 +33,7 @@ class OpenAIApiImplInternal : OpenAIApi {
     }
 
     // Конфигурация Hugging Face API
-    private val configService = ConfigService()
+    private val configService = ConfigService
     private var apiKey: String = ""
     private var defaultModel: String = "deepseek-ai/DeepSeek-V3-0324"
     private var maxTokens: Int = 2000

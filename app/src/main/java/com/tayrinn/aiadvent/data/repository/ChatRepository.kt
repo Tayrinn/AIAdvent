@@ -1,7 +1,7 @@
 package com.tayrinn.aiadvent.data.repository
 
 import com.tayrinn.aiadvent.data.api.OllamaApi
-import com.tayrinn.aiadvent.data.database.ChatMessageDao
+// import com.tayrinn.aiadvent.data.database.ChatMessageDao // Temporarily disabled
 import com.tayrinn.aiadvent.data.model.ChatMessage
 import com.tayrinn.aiadvent.data.model.OllamaRequest
 import com.tayrinn.aiadvent.data.model.OllamaOptions
@@ -15,7 +15,7 @@ import android.content.Context
 
 class ChatRepository(
     private val ollamaApi: OllamaApi,
-    private val chatMessageDao: ChatMessageDao,
+    // private val chatMessageDao: ChatMessageDao, // Temporarily disabled
     private val imageGenerationService: ImageGenerationService,
     private val context: Context
 ) {
@@ -56,8 +56,8 @@ Rules:
                     return@withContext Pair("", "") // Обрабатывается отдельно в ViewModel
                 }
                 
-                // Получаем последние 3 сообщения для контекста
-                val recentMessages = chatMessageDao.getLastMessages(3)
+                // Получаем последние 3 сообщения для контекста (заглушка)
+                val recentMessages = emptyList<ChatMessage>() // TODO: implement message storage
 
                 // Агент 1: Отвечает на вопрос пользователя
                 val agent1Prompt = buildString {
@@ -169,11 +169,13 @@ Rules:
     }
     
     suspend fun insertMessage(message: ChatMessage) {
-        chatMessageDao.insertMessage(message)
+        // TODO: implement message storage
+        Log.d("ChatRepository", "Message would be stored: ${message.content}")
     }
     
     fun getAllMessages(): Flow<List<ChatMessage>> {
-        return chatMessageDao.getAllMessages()
+        // TODO: implement message storage
+        return kotlinx.coroutines.flow.flowOf(emptyList())
     }
     
                     suspend fun getAllMessagesSync(): List<ChatMessage> {
@@ -181,9 +183,9 @@ Rules:
                     return withContext(Dispatchers.IO) {
                         try {
                             Log.d("ChatRepository", "Inside withContext(Dispatchers.IO), thread: ${Thread.currentThread().name}")
-                            Log.d("ChatRepository", "About to call chatMessageDao.getAllMessagesSync()")
-                            val messages = chatMessageDao.getAllMessagesSync()
-                            Log.d("ChatRepository", "Successfully received ${messages.size} messages from DAO")
+                            Log.d("ChatRepository", "About to get messages (stub implementation)")
+                            val messages = emptyList<ChatMessage>() // TODO: implement message storage
+                            Log.d("ChatRepository", "Successfully received ${messages.size} messages from storage")
                             messages
                         } catch (e: Exception) {
                             Log.e("ChatRepository", "Error in getAllMessagesSync: ${e.message}")
@@ -215,7 +217,8 @@ Rules:
                 }
     
     suspend fun clearMessages() {
-        chatMessageDao.deleteAllMessages()
+        // TODO: implement message storage
+        Log.d("ChatRepository", "Messages would be cleared")
     }
     
     fun getContext(): Context {
