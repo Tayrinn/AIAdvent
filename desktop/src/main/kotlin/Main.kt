@@ -137,7 +137,45 @@ fun MainAppContent(
 
     // Создаем сервис распознавания речи
     val speechToTextService = remember { SpeechToTextService() }
+    
+    // Создаем сервисы для работы с предпочтениями пользователя
+    val preferencesStorage = remember { com.tayrinn.aiadvent.data.local.PreferencesStorage() }
+    val preferencesExtractionService = remember { com.tayrinn.aiadvent.service.PreferencesExtractionService() }
+    
+    // Состояние для предпочтений пользователя
+    var userPreferences by remember { mutableStateOf<com.tayrinn.aiadvent.data.model.UserPreferences?>(null) }
 
+    // Функция для создания системного промпта с предпочтениями
+    val createSystemPrompt: (String) -> String = { basePrompt ->
+        val preferences = userPreferences
+        if (preferences != null) {
+            val preferencesText = buildString {
+                append("ПРЕДПОЧТЕНИЯ ПОЛЬЗОВАТЕЛЯ:\n")
+                preferences.name?.let { append("- Имя: $it\n") }
+                append("- Язык общения: ${preferences.language}\n")
+                append("- Стиль общения: ${preferences.communicationStyle}\n")
+                append("- Предпочитаемая длина ответов: ${preferences.responseLength}\n")
+                
+                if (preferences.interests.isNotEmpty()) {
+                    append("- Интересы: ${preferences.interests.joinToString(", ")}\n")
+                }
+                if (preferences.expertise.isNotEmpty()) {
+                    append("- Области экспертизы: ${preferences.expertise.joinToString(", ")}\n")
+                }
+                if (preferences.preferredTopics.isNotEmpty()) {
+                    append("- Предпочитаемые темы: ${preferences.preferredTopics.joinToString(", ")}\n")
+                }
+                if (preferences.avoidTopics.isNotEmpty()) {
+                    append("- Избегать тем: ${preferences.avoidTopics.joinToString(", ")}\n")
+                }
+                append("\n")
+            }
+            "$preferencesText$basePrompt"
+        } else {
+            basePrompt
+        }
+    }
+    
     // Функция для воспроизведения аудио
     val playAudio: (String) -> Unit = { text ->
         scope.launch {
@@ -154,9 +192,24 @@ fun MainAppContent(
 
 
     
-    // Загружаем сообщения из хранилища и добавляем приветственное сообщение
+    // Загружаем сообщения из хранилища и предпочтения пользователя
     LaunchedEffect(Unit) {
         try {
+            // Загружаем предпочтения пользователя
+            userPreferences = preferencesStorage.loadPreferences(user.id)
+            if (userPreferences == null) {
+                // Создаем начальные предпочтения на основе данных Google
+                userPreferences = com.tayrinn.aiadvent.data.model.UserPreferences(
+                    userId = user.id,
+                    name = user.name,
+                    language = "ru" // По умолчанию русский язык
+                )
+                preferencesStorage.savePreferences(userPreferences!!)
+                println("✅ Созданы начальные предпочтения для пользователя: ${user.name}")
+            } else {
+                println("📖 Загружены предпочтения пользователя: ${userPreferences?.name}")
+            }
+            
             val savedMessages = chatStorage.loadMessages()
             messages.addAll(savedMessages)
 
@@ -544,7 +597,8 @@ fun MainAppContent(
 
                                             // Этап 1: Размышления AI
                                             println("🤔 Этап 1: AI размышляет...")
-                                            val thinkingPrompt = "Внимательно обдумай вопрос пользователя и напиши свои рассуждения. Проанализируй все аспекты вопроса. Напиши только рассуждения, без самого ответа или дополнительных вопросов пользователю."
+                                            val baseThinkingPrompt = "Внимательно обдумай вопрос пользователя и напиши свои рассуждения. Проанализируй все аспекты вопроса. Напиши только рассуждения, без самого ответа или дополнительных вопросов пользователю."
+                                            val thinkingPrompt = createSystemPrompt(baseThinkingPrompt)
                                             val (thinkingResponse, _) = chatRepository.sendMessage(
                                                 "$thinkingPrompt\n\nВопрос пользователя: $text", 
                                                 recentMessages, 
@@ -563,7 +617,8 @@ fun MainAppContent(
 
                                             // Этап 2: Проверка рассуждений
                                             println("🔍 Этап 2: AI проверяет рассуждения...")
-                                            val confirmationPrompt = "Прочти свои рассуждения и подтверди, что они верные. Найди возможные ошибки или упущения. Напиши только анализ и проверку рассуждений, без дополнительных вопросов или самого ответа."
+                                            val baseConfirmationPrompt = "Прочти свои рассуждения и подтверди, что они верные. Найди возможные ошибки или упущения. Напиши только анализ и проверку рассуждений, без дополнительных вопросов или самого ответа."
+                                            val confirmationPrompt = createSystemPrompt(baseConfirmationPrompt)
                                             val (confirmationResponse, _) = chatRepository.sendMessage(
                                                 "$confirmationPrompt\n\nМои рассуждения: $thinkingResponse\n\nВопрос пользователя: $text", 
                                                 emptyList(), // Не передаём контекст, чтобы сосредоточиться на проверке
@@ -582,7 +637,8 @@ fun MainAppContent(
 
                                             // Этап 3: Финальный ответ
                                             println("✅ Этап 3: AI даёт финальный ответ...")
-                                            val finalPrompt = "На основе своих рассуждений и их проверки дай полный и точный ответ пользователю."
+                                            val baseFinalPrompt = "На основе своих рассуждений и их проверки дай полный и точный ответ пользователю."
+                                            val finalPrompt = createSystemPrompt(baseFinalPrompt)
                                             val (finalResponse, _) = chatRepository.sendMessage(
                                                 "$finalPrompt\n\nРассуждения: $thinkingResponse\n\nПроверка: $confirmationResponse\n\nВопрос пользователя: $text", 
                                                 emptyList(), // Не передаём контекст, чтобы сосредоточиться на финальном ответе
@@ -596,6 +652,26 @@ fun MainAppContent(
                                             )
                                             messages.add(finalMessage)
                                             chatStorage.saveMessage(finalMessage)
+
+                                            // Извлекаем предпочтения из диалога в фоновом режиме
+                                            scope.launch {
+                                                try {
+                                                    println("🧠 Извлекаем предпочтения пользователя из диалога...")
+                                                    val extractedPreferences = preferencesExtractionService.extractPreferences(
+                                                        messages = messages.toList(), // Создаем копию списка
+                                                        currentPreferences = userPreferences,
+                                                        userId = user.id
+                                                    )
+                                                    
+                                                    if (extractedPreferences != null) {
+                                                        userPreferences = extractedPreferences
+                                                        preferencesStorage.savePreferences(extractedPreferences)
+                                                        println("✅ Предпочтения обновлены и сохранены")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    println("❌ Ошибка извлечения предпочтений: ${e.message}")
+                                                }
+                                            }
 
                                             kotlinx.coroutines.delay(500)
                                         } catch (e: Exception) {

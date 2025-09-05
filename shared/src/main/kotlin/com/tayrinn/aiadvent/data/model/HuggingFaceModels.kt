@@ -72,3 +72,34 @@ data class TTSRequest(
 data class TTSResponse(
     val audio: String // base64 encoded audio
 )
+
+// === User Preferences Models ===
+
+@Serializable
+data class UserPreferences(
+    val userId: String,
+    val language: String = "ru", // Язык общения (ru, en, etc.)
+    val name: String? = null, // Имя пользователя
+    val communicationStyle: String = "friendly", // Стиль общения (formal, friendly, casual)
+    val responseLength: String = "medium", // Длина ответов (short, medium, long)
+    val interests: List<String> = emptyList(), // Интересы пользователя
+    val expertise: List<String> = emptyList(), // Области экспертизы пользователя
+    val timezone: String? = null, // Часовой пояс
+    val preferredTopics: List<String> = emptyList(), // Предпочитаемые темы
+    val avoidTopics: List<String> = emptyList(), // Темы, которых следует избегать
+    val lastUpdated: Long = System.currentTimeMillis()
+)
+
+@Serializable
+data class PreferenceExtractionRequest(
+    val messages: List<ChatMessage>,
+    val currentPreferences: UserPreferences?,
+    val model: String
+)
+
+@Serializable
+data class PreferenceExtractionResponse(
+    val extractedPreferences: UserPreferences,
+    val confidence: Float, // Уверенность в извлеченных предпочтениях (0.0 - 1.0)
+    val changes: List<String> // Список изменений, которые были обнаружены
+)
