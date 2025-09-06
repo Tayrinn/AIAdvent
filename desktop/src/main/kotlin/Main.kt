@@ -119,6 +119,7 @@ fun MainAppContent(
     val temperature = remember { mutableStateOf(0.7f) }
     val modelName = remember { mutableStateOf("deepseek-ai/DeepSeek-V3-0324") }
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     val testRunner = remember { TestRunner() }
 
     // Создаем хранилище для сообщений
@@ -142,8 +143,19 @@ fun MainAppContent(
     val preferencesStorage = remember { com.tayrinn.aiadvent.data.local.PreferencesStorage() }
     val preferencesExtractionService = remember { com.tayrinn.aiadvent.service.PreferencesExtractionService() }
     
+    // Создаем сервис для ревью проектов
+    val projectReviewService = remember { com.tayrinn.aiadvent.service.ProjectReviewService() }
+    
     // Состояние для предпочтений пользователя
     var userPreferences by remember { mutableStateOf<com.tayrinn.aiadvent.data.model.UserPreferences?>(null) }
+    
+    // Функция для добавления сообщения с автоскроллом
+    val addMessageWithScroll: (ChatMessage) -> Unit = { message ->
+        messages.add(message)
+        scope.launch {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
 
     // Функция для создания системного промпта с предпочтениями
     val createSystemPrompt: (String) -> String = { basePrompt ->
@@ -215,7 +227,7 @@ fun MainAppContent(
 
             // Добавляем приветственное сообщение только если нет сохраненных сообщений
             if (savedMessages.isEmpty()) {
-                messages.add(
+                addMessageWithScroll(
                     ChatMessage(
                         content = "🚀 **AIAdvent Desktop with Hugging Face:** Welcome! Now powered by Hugging Face API!",
                         isUser = false,
@@ -223,10 +235,15 @@ fun MainAppContent(
                     )
                 )
             }
+            
+            // Прокручиваем к последнему сообщению при загрузке
+            if (messages.isNotEmpty()) {
+                listState.animateScrollToItem(messages.size - 1)
+            }
         } catch (e: Exception) {
             println("❌ Ошибка загрузки сообщений: ${e.message}")
             // В случае ошибки показываем приветственное сообщение
-            messages.add(
+            addMessageWithScroll(
                 ChatMessage(
                     content = "🚀 **AIAdvent Desktop with Hugging Face:** Welcome! Now powered by Hugging Face API!",
                     isUser = false,
@@ -291,13 +308,15 @@ fun MainAppContent(
                     }
                 }
                 
-                Row {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(
                         onClick = {
                             scope.launch {
                                 val selectedFile = selectFile()
                                 if (selectedFile != null) {
-                                    messages.add(
+                                    addMessageWithScroll(
                                         ChatMessage(
                                             content = "📁 Выбран файл: $selectedFile",
                                             isUser = false,
@@ -310,7 +329,7 @@ fun MainAppContent(
                                     try {
                                         // Callback функция для добавления сообщений
                                         val onMessage: (String) -> Unit = { message: String ->
-                                            messages.add(
+                                            addMessageWithScroll(
                                                 ChatMessage(
                                                     content = message,
                                                     isUser = false,
@@ -322,7 +341,7 @@ fun MainAppContent(
                                         val result = testWorkflowService.executeTestWorkflow(selectedFile, onMessage)
 
                                         // Добавляем итоговый отчет
-                                        messages.add(
+                                        addMessageWithScroll(
                                             ChatMessage(
                                                 content = "📋 **ИТОГОВЫЙ ОТЧЕТ:**\n\n$result",
                                                 isUser = false,
@@ -330,7 +349,7 @@ fun MainAppContent(
                                             )
                                         )
                                     } catch (e: Exception) {
-                                        messages.add(
+                                        addMessageWithScroll(
                                             ChatMessage(
                                                 content = "❌ Ошибка: ${e.message}",
                                                 isUser = false,
@@ -346,6 +365,125 @@ fun MainAppContent(
                         enabled = !isLoading.value
                     ) {
                         Text("📁 Открыть файл")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val selectedFolder = selectFolder()
+                                if (selectedFolder != null) {
+                                    addMessageWithScroll(
+                                        ChatMessage(
+                                            content = "📂 Выбрана папка для ревью: $selectedFolder",
+                                            isUser = false,
+                                            isAgent1 = true
+                                        )
+                                    )
+
+                                    isLoading.value = true
+                                    try {
+                                        // Анализируем проект
+                                        val projectStructure = projectReviewService.analyzeProject(selectedFolder)
+                                        
+                                        addMessageWithScroll(
+                                            ChatMessage(
+                                                content = "📊 **Анализ проекта завершён**\n" +
+                                                        "📁 Всего файлов: ${projectStructure.totalFiles}\n" +
+                                                        "📄 Всего строк: ${projectStructure.totalLines}\n" +
+                                                        "💻 Языки: ${projectStructure.languages.keys.joinToString(", ")}",
+                                                isUser = false,
+                                                isAgent1 = true
+                                            )
+                                        )
+                                        
+                                        // Начинаем сессию ревью
+                                        val initialAnalysis = projectReviewService.startReviewSession(projectStructure)
+                                        
+                                        addMessageWithScroll(
+                                            ChatMessage(
+                                                content = "🤖 **Ревьювер ИИ:**\n\n$initialAnalysis",
+                                                isUser = false,
+                                                isAgent1 = true
+                                            )
+                                        )
+                                        
+                                        // Автовыполнение первой команды от ИИ (если она присутствует)
+                                        val initialCommand = projectReviewService.extractCommandFromResponse(initialAnalysis)
+                                        if (initialCommand != null) {
+                                            println("🤖 ИИ дал стартовую команду: $initialCommand")
+                                            var nextCommand: String? = initialCommand
+                                            var safetyCounter = 0
+
+                                            while (nextCommand != null && safetyCounter < 20) {
+                                                safetyCounter++
+                                                val execResult = projectReviewService.processCommand(nextCommand)
+                                                addMessageWithScroll(
+                                                    ChatMessage(
+                                                        content = "🔍 **Выполнена команда:** `$nextCommand`\n\n$execResult",
+                                                        isUser = false,
+                                                        isAgent1 = true
+                                                    )
+                                                )
+
+                                                // Запрашиваем у ИИ советы и следующую команду
+                                                val decision = projectReviewService.decideNextAction(execResult)
+                                                if (decision == null) {
+                                                    addMessageWithScroll(
+                                                        ChatMessage(
+                                                            content = "❌ Не удалось получить следующую команду от ИИ",
+                                                            isUser = false,
+                                                            isError = true
+                                                        )
+                                                    )
+                                                    break
+                                                }
+
+                                                // Публикуем советы
+                                                addMessageWithScroll(
+                                                    ChatMessage(
+                                                        content = "💡 **Советы по улучшению:**\n\n${decision.advice}",
+                                                        isUser = false,
+                                                        isAgent1 = true
+                                                    )
+                                                )
+
+                                                nextCommand = decision.next_command?.trim()
+                                                if (nextCommand != null) {
+                                                    println("🔁 Следующая команда от ИИ: $nextCommand")
+                                                    if (nextCommand.equals("final report", ignoreCase = true)) {
+                                                        val report = projectReviewService.processCommand(nextCommand)
+                                                        addMessageWithScroll(
+                                                            ChatMessage(
+                                                                content = "📋 **Финальный отчёт:**\n\n$report",
+                                                                isUser = false,
+                                                                isAgent1 = true
+                                                            )
+                                                        )
+                                                        break
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                    } catch (e: Exception) {
+                                        println("❌ Ошибка анализа проекта (UI): ${e.message}")
+                                        e.printStackTrace()
+                                        addMessageWithScroll(
+                                            ChatMessage(
+                                                content = "❌ Ошибка анализа проекта: ${e.message}",
+                                                isUser = false,
+                                                isError = true
+                                            )
+                                        )
+                                    } finally {
+                                        isLoading.value = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isLoading.value
+                    ) {
+                        Text("🔍 Ревью проекта")
                     }
                     
                     Spacer(modifier = Modifier.width(8.dp))
@@ -464,7 +602,7 @@ fun MainAppContent(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                state = rememberLazyListState()
+                state = listState
             ) {
                 items(messages) { message ->
                     ChatMessageItem(message = message, onPlayAudio = playAudio)
@@ -532,7 +670,7 @@ fun MainAppContent(
                                 content = text,
                                 isUser = true
                             )
-                            messages.add(userMessage)
+                            addMessageWithScroll(userMessage)
 
                             // Сохраняем сообщение пользователя в базу данных
                             scope.launch {
@@ -559,7 +697,7 @@ fun MainAppContent(
                                         isLoading.value = true
                                         try {
                                             val testReport = testRunner.runTests()
-                                            messages.add(
+                                            addMessageWithScroll(
                                                 ChatMessage(
                                                     content = testReport.getSummary(),
                                                     isUser = false,
@@ -587,6 +725,38 @@ fun MainAppContent(
                                 //         )
                                 //     )
                                 // }
+                                // Обработка команд ревью проекта
+                                text.startsWith("show file:", ignoreCase = true) ||
+                                text.startsWith("list files:", ignoreCase = true) ||
+                                text.startsWith("analyze dependencies", ignoreCase = true) ||
+                                text.startsWith("find duplicates", ignoreCase = true) ||
+                                text.startsWith("check architecture", ignoreCase = true) ||
+                                text.startsWith("final report", ignoreCase = true) -> {
+                                    scope.launch {
+                                        isLoading.value = true
+                                        try {
+                                            val commandResult = projectReviewService.processCommand(text)
+                                            
+                                            addMessageWithScroll(
+                                                ChatMessage(
+                                                    content = "🔍 **Команда выполнена:**\n\n$commandResult",
+                                                    isUser = false,
+                                                    isAgent1 = true
+                                                )
+                                            )
+                                        } catch (e: Exception) {
+                                            addMessageWithScroll(
+                                                ChatMessage(
+                                                    content = "❌ Ошибка выполнения команды: ${e.message}",
+                                                    isUser = false,
+                                                    isError = true
+                                                )
+                                            )
+                                        } finally {
+                                            isLoading.value = false
+                                        }
+                                    }
+                                }
                                 else -> {
                                     // Отправляем сообщение к ChatGPT в трёхэтапном процессе
                                     scope.launch {
@@ -595,63 +765,53 @@ fun MainAppContent(
                                             // Получаем последние 3 сообщения для контекста (исключая текущее)
                                             val recentMessages = messages.takeLast(3).filter { it.content != text }
 
-                                            // Этап 1: Размышления AI
-                                            println("🤔 Этап 1: AI размышляет...")
-                                            val baseThinkingPrompt = "Внимательно обдумай вопрос пользователя и напиши свои рассуждения. Проанализируй все аспекты вопроса. Напиши только рассуждения, без самого ответа или дополнительных вопросов пользователю."
-                                            val thinkingPrompt = createSystemPrompt(baseThinkingPrompt)
-                                            val (thinkingResponse, _) = chatRepository.sendMessage(
-                                                "$thinkingPrompt\n\nВопрос пользователя: $text", 
+                                            // Отправляем запрос к AI модели
+                                            println("🤖 AI отвечает на вопрос пользователя...")
+                                            val basePrompt = "Ответь на вопрос пользователя полно и точно."
+                                            val prompt = createSystemPrompt(basePrompt)
+                                            val (aiResponse, _) = chatRepository.sendMessage(
+                                                "$prompt\n\nВопрос пользователя: $text", 
                                                 recentMessages, 
                                                 modelName.value
                                             )
 
-                                            val thinkingMessage = ChatMessage(
-                                                content = "🤖 **Думает:** $thinkingResponse",
+                                            val responseMessage = ChatMessage(
+                                                content = aiResponse,
                                                 isUser = false,
                                                 isAgent1 = true
                                             )
-                                            messages.add(thinkingMessage)
-                                            chatStorage.saveMessage(thinkingMessage)
+                                            addMessageWithScroll(responseMessage)
+                                            chatStorage.saveMessage(responseMessage)
 
-                                            kotlinx.coroutines.delay(1000)
-
-                                            // Этап 2: Проверка рассуждений
-                                            println("🔍 Этап 2: AI проверяет рассуждения...")
-                                            val baseConfirmationPrompt = "Прочти свои рассуждения и подтверди, что они верные. Найди возможные ошибки или упущения. Напиши только анализ и проверку рассуждений, без дополнительных вопросов или самого ответа."
-                                            val confirmationPrompt = createSystemPrompt(baseConfirmationPrompt)
-                                            val (confirmationResponse, _) = chatRepository.sendMessage(
-                                                "$confirmationPrompt\n\nМои рассуждения: $thinkingResponse\n\nВопрос пользователя: $text", 
-                                                emptyList(), // Не передаём контекст, чтобы сосредоточиться на проверке
-                                                modelName.value
-                                            )
-
-                                            val confirmationMessage = ChatMessage(
-                                                content = "🤖 **Ищу подтверждения:** $confirmationResponse",
-                                                isUser = false,
-                                                isAgent1 = true
-                                            )
-                                            messages.add(confirmationMessage)
-                                            chatStorage.saveMessage(confirmationMessage)
-
-                                            kotlinx.coroutines.delay(1000)
-
-                                            // Этап 3: Финальный ответ
-                                            println("✅ Этап 3: AI даёт финальный ответ...")
-                                            val baseFinalPrompt = "На основе своих рассуждений и их проверки дай полный и точный ответ пользователю."
-                                            val finalPrompt = createSystemPrompt(baseFinalPrompt)
-                                            val (finalResponse, _) = chatRepository.sendMessage(
-                                                "$finalPrompt\n\nРассуждения: $thinkingResponse\n\nПроверка: $confirmationResponse\n\nВопрос пользователя: $text", 
-                                                emptyList(), // Не передаём контекст, чтобы сосредоточиться на финальном ответе
-                                                modelName.value
-                                            )
-
-                                            val finalMessage = ChatMessage(
-                                                content = finalResponse,
-                                                isUser = false,
-                                                isAgent1 = true
-                                            )
-                                            messages.add(finalMessage)
-                                            chatStorage.saveMessage(finalMessage)
+                                            // Проверяем, содержит ли ответ ИИ команды для ревью проекта
+                                            val extractedCommand = projectReviewService.extractCommandFromResponse(aiResponse)
+                                            
+                                            if (extractedCommand != null) {
+                                                // ИИ дал команду - выполняем её
+                                                scope.launch {
+                                                    try {
+                                                        println("🤖 ИИ дал команду: $extractedCommand")
+                                                        
+                                                        val commandResult = projectReviewService.processCommand(extractedCommand)
+                                                        
+                                                        addMessageWithScroll(
+                                                            ChatMessage(
+                                                                content = "🔍 **Выполнена команда:** `$extractedCommand`\n\n$commandResult",
+                                                                isUser = false,
+                                                                isAgent1 = true
+                                                            )
+                                                        )
+                                                    } catch (e: Exception) {
+                                                        addMessageWithScroll(
+                                                            ChatMessage(
+                                                                content = "❌ Ошибка выполнения команды ИИ: ${e.message}",
+                                                                isUser = false,
+                                                                isError = true
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            }
 
                                             // Извлекаем предпочтения из диалога в фоновом режиме
                                             scope.launch {
@@ -680,7 +840,7 @@ fun MainAppContent(
                                                 isUser = false,
                                                 isError = true
                                             )
-                                            messages.add(errorMessage)
+                                            addMessageWithScroll(errorMessage)
 
                                             // Сохраняем сообщение об ошибке в базу данных
                                             try {
@@ -774,6 +934,19 @@ fun selectFile(): String? {
     fileChooser.fileFilter = FileNameExtensionFilter(
         "Исходный код", "kt", "java", "py", "js", "ts", "cpp", "c", "cs", "go", "rs"
     )
+    
+    val result = fileChooser.showOpenDialog(null)
+    return if (result == JFileChooser.APPROVE_OPTION) {
+        fileChooser.selectedFile.absolutePath
+    } else {
+        null
+    }
+}
+
+fun selectFolder(): String? {
+    val fileChooser = JFileChooser()
+    fileChooser.dialogTitle = "Выберите папку проекта для ревью"
+    fileChooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
     
     val result = fileChooser.showOpenDialog(null)
     return if (result == JFileChooser.APPROVE_OPTION) {
