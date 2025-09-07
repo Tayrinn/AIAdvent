@@ -146,6 +146,9 @@ fun MainAppContent(
     // Создаем сервис для ревью проектов
     val projectReviewService = remember { com.tayrinn.aiadvent.service.ProjectReviewService() }
     
+    // Создаем сервис для создания постов
+    val postCreationService = remember { com.tayrinn.aiadvent.service.PostCreationService() }
+    
     // Состояние для предпочтений пользователя
     var userPreferences by remember { mutableStateOf<com.tayrinn.aiadvent.data.model.UserPreferences?>(null) }
     
@@ -365,6 +368,61 @@ fun MainAppContent(
                         enabled = !isLoading.value
                     ) {
                         Text("📁 Открыть файл")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                // Диалог для ввода темы и ключевых идей
+                                val topic = javax.swing.JOptionPane.showInputDialog(
+                                    null,
+                                    "Введите тему для поста:",
+                                    "Создание поста - Тема",
+                                    javax.swing.JOptionPane.QUESTION_MESSAGE
+                                )
+                                
+                                if (!topic.isNullOrBlank()) {
+                                    val keyIdeas = javax.swing.JOptionPane.showInputDialog(
+                                        null,
+                                        "Введите ключевые идеи (через запятую):",
+                                        "Создание поста - Ключевые идеи",
+                                        javax.swing.JOptionPane.QUESTION_MESSAGE
+                                    ) ?: ""
+                                    
+                                    isLoading.value = true
+                                    try {
+                                        // Запускаем процесс создания поста
+                                        postCreationService.createFullPost(
+                                            topic = topic,
+                                            keyIdeas = keyIdeas,
+                                            onMessage = { postMessage ->
+                                                // Конвертируем сообщение из сервиса в ChatMessage для UI
+                                                val chatMessage = ChatMessage(
+                                                    content = postMessage.content,
+                                                    isUser = postMessage.isUser,
+                                                    isAgent1 = postMessage.isAgent1,
+                                                    isError = postMessage.isError
+                                                )
+                                                addMessageWithScroll(chatMessage)
+                                            }
+                                        )
+                                    } catch (e: Exception) {
+                                        addMessageWithScroll(
+                                            ChatMessage(
+                                                content = "❌ Ошибка создания поста: ${e.message}",
+                                                isUser = false,
+                                                isError = true
+                                            )
+                                        )
+                                    } finally {
+                                        isLoading.value = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isLoading.value
+                    ) {
+                        Text("✍️ Создать пост")
                     }
                     
                     Button(
