@@ -21,7 +21,7 @@ jobs:
         run: java -version
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Test Gradle with Java toolchain
         run: ./gradlew --version
